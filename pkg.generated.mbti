@@ -1,0 +1,116 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "2227057182/moonbit-sat"
+
+// Values
+pub fn check_drat(Formula, Array[DratStep]) -> Bool
+
+pub fn lit_is_neg(Int32) -> Bool
+
+pub fn lit_neg(Int32) -> Int32
+
+pub fn lit_new(Int32, Bool) -> Int32
+
+pub fn lit_var(Int32) -> Int32
+
+pub fn maxsat_solve(Wcnf, Int32) -> Int32 raise
+
+pub fn parse_dimacs(String) -> Formula raise
+
+pub fn parse_drat(String) -> Array[DratStep]
+
+pub fn parse_wcnf(String) -> Wcnf
+
+pub fn to_dimacs(Formula) -> String
+
+pub fn verify_proof(Formula, String) -> Bool
+
+// Errors
+
+// Types and methods
+pub struct Clause {
+  lits : Array[Int32]
+  mut learnt : Bool
+  mut activity : Double
+  mut lbd : Int32
+  mut watch0 : Int32
+  mut watch1 : Int32
+  mut dead : Bool
+}
+pub fn Clause::add_activity(Self, Double) -> Unit
+pub fn Clause::mark_dead(Self) -> Unit
+pub fn Clause::move_watch(Self, Int32, Int32) -> Unit
+pub fn Clause::new(Array[Int32], Bool) -> Self
+pub fn Clause::set_lbd(Self, Int32) -> Unit
+pub fn Clause::set_learnt(Self, Bool) -> Unit
+pub fn Clause::size(Self) -> Int32
+pub fn Clause::watch_at(Self, Int32) -> Int32
+
+pub struct DratStep {
+  is_delete : Bool
+  lits : Array[Int32]
+}
+
+pub struct Formula {
+  mut num_vars : Int32
+  clauses : Array[Clause]
+}
+pub fn Formula::add(Self, Array[Int32]) -> Bool
+pub fn Formula::new(Int32) -> Self
+pub fn Formula::num_clauses(Self) -> Int32
+
+pub struct Proof {
+  lines : Array[String]
+}
+pub fn Proof::add(Self, Array[Int32]) -> Unit
+pub fn Proof::delete(Self, Array[Int32]) -> Unit
+pub fn Proof::empty(Self) -> Unit
+pub fn Proof::new() -> Self
+pub fn Proof::text(Self) -> String
+
+pub struct Solver {
+  mut num_vars : Int32
+  clauses : Array[Clause]
+  watches : Array[Array[Int32]]
+  assigns : Array[Int32]
+  levels : Array[Int32]
+  reasons : Array[Int32]
+  trail : Array[Int32]
+  trail_lim : Array[Int32]
+  mut qhead : Int32
+  activity : Array[Double]
+  mut var_inc : Double
+  heap : Array[Int32]
+  heap_pos : Array[Int32]
+  phase : Array[Bool]
+  mut ok : Bool
+  mut decisions : Int32
+  mut propagations : Int32
+  mut conflicts : Int32
+  mut restarts : Int32
+  mut learnts : Array[Int32]
+  mut max_learnts : Int32
+  mut conflicts_until_restart : Int32
+  mut proof : Proof?
+}
+pub fn Solver::add_clause(Self, Array[Int32]) -> Bool
+pub fn Solver::decision_level(Self) -> Int32
+pub fn Solver::enable_proof(Self) -> Proof
+pub fn Solver::model(Self) -> Array[Bool]
+pub fn Solver::new(Formula) -> Self
+pub fn Solver::new_var(Self) -> Int32
+pub fn Solver::solve(Self, Array[Int32]) -> Bool
+pub fn Solver::stats_string(Self) -> String
+pub fn Solver::value_lit(Self, Int32) -> Int32
+
+pub struct Wcnf {
+  num_vars : Int32
+  top : Int32
+  hard : Array[Array[Int32]]
+  soft : Array[Array[Int32]]
+  weights : Array[Int32]
+}
+
+// Type aliases
+pub type Lit = Int32
+
+// Traits
