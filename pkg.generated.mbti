@@ -57,6 +57,8 @@ pub struct Formula {
 pub fn Formula::add(Self, Array[Int32]) -> Bool
 pub fn Formula::new(Int32) -> Self
 pub fn Formula::num_clauses(Self) -> Int32
+pub fn Formula::num_tautologies(Self) -> Int32
+pub fn Formula::simplify(Self) -> Int32
 
 pub struct Proof {
   lines : Array[String]

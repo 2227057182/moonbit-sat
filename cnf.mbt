@@ -152,11 +152,9 @@ pub fn parse_dimacs(text : String) -> Formula raise {
     }
     for n in scan_ints(line) {
       if n == 0 {
-        if pending.length() > 0 {
-          let lits = pending
-          pending = []
-          formula.add(lits) |> ignore
-        }
+        let lits = pending
+        pending = []
+        formula.add(lits) |> ignore
       } else {
         let v = (if n < 0 { -n } else { n }) - 1
         if v < 0 {
@@ -192,4 +190,74 @@ pub fn to_dimacs(formula : Formula) -> String {
     buf.write_string("0\n")
   }
   buf.to_string()
+}
+
+///|
+/// Deduplicate the literals of one clause and report whether the clause is a
+/// tautology, i.e. it contains both `l` and `-l`.  Such clauses can never
+/// constrain a model, so dropping them is sound and shrinks every later
+/// propagation pass.
+fn clause_normalize(lits : Array[Lit], num_vars : Int) -> (Array[Lit], Bool) {
+  let state : Array[Int] = Array::make(num_vars, 0)
+  let out : Array[Lit] = []
+  let mut taut = false
+  for l in lits {
+    let v = lit_var(l)
+    let sign = if lit_is_neg(l) {
+      2
+    } else {
+      1
+    }
+    if v >= 0 && v < num_vars {
+      if state[v] == sign {
+        continue
+      }
+      if state[v] != 0 {
+        taut = true
+        continue
+      }
+      state[v] = sign
+    }
+    out.push(l)
+  }
+  (out, taut)
+}
+
+///|
+/// Normalise the formula before handing it to `Solver::new`: repeated literals
+/// inside a clause are collapsed and tautological clauses are removed.  The
+/// solver caches clause shape in its watch lists, so this must run on the
+/// `Formula`, not on a live solver.  Returns the number of clauses dropped.
+pub fn Formula::simplify(self : Formula) -> Int {
+  let nv = self.num_vars
+  let kept : Array[Clause] = []
+  let mut removed = 0
+  for c in self.clauses {
+    let (lits, taut) = clause_normalize(c.lits, nv)
+    if taut {
+      removed = removed + 1
+    } else {
+      kept.push(Clause::new(lits, c.learnt))
+    }
+  }
+  self.clauses.clear()
+  for c in kept {
+    self.clauses.push(c)
+  }
+  removed
+}
+
+///|
+/// Number of tautological clauses currently in the formula.  Reading this is
+/// cheap and lets a caller warn about redundant input without rewriting it.
+pub fn Formula::num_tautologies(self : Formula) -> Int {
+  let nv = self.num_vars
+  let mut n = 0
+  for c in self.clauses {
+    let (_, taut) = clause_normalize(c.lits, nv)
+    if taut {
+      n = n + 1
+    }
+  }
+  n
 }
