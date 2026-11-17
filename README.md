@@ -7,8 +7,9 @@
 
 | 能力 | 说明 |
 | --- | --- |
-| CDCL 求解 | 两文字监听、1-UIP 学习子句、VSIDS 活动度、重启、子句库归约、相位保存 |
+| CDCL 求解 | 两文字监听、1-UIP 学习子句、VSIDS 活动度、Luby 序列重启、子句库归约、相位保存 |
 | 增量求解 | `solve(assumptions)` 可反复调用，带 assumption 的 UNSAT 不污染后续求解状态 |
+| 冲突预算 | `solve_with_budget` 在给定冲突数后返回 `Unknown`，回退到 0 层，可继续求解 |
 | UNSAT 证明 | 每个学习子句与最终空子句写入 DRAT 风格日志，可交给第三方检查器复算 |
 | 独立检查器 | 项目自带 `check_drat` / `verify_proof`，逐条 RUP 复算，不信任求解器 |
 | 加权 MaxSAT | WCNF 解析 + 松弛变量 + Sinz 顺序计数编码 + 二分求最优成本 |
@@ -106,16 +107,17 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 
 ## 正确性证据
 
-`moon test` 共 24 个测试，其中三类是硬证据：
+`moon test` 共 30 个测试，其中四类是硬证据：
 
 1. **与暴力枚举对拍**：80 轮随机 3–5 变量公式，CDCL 的 SAT/UNSAT 结论与真值表枚举逐一比对，SAT 时还验证模型确实满足每条子句。
 2. **证明自校验**：对随机 UNSAT 实例生成 DRAT 证明，再用 `verify_proof` 逐条 RUP 复算；同时有反例测试，确认非 RUP 步骤与缺失空子句都会被拒绝。
 3. **MaxSAT 与暴力最优值对拍**：40 轮随机 WCNF，二分求得的最优成本与枚举所有赋值的最小成本一致。
 4. **边界与退化输入**：空公式、空子句、重复文字、重言子句、变量越界、证明删除行、连续假设调用、MaxSAT 硬冲突与无软子句实例，各有独立测试；`simplify` 与原公式的结论还在 30 轮随机公式上逐一对拍。
+5. **重启与预算**：Luby 序列前 16 项逐项固定，防止差一错误；0 预算在必然产生冲突的实例上返回 `Unknown`，随后同一求解器继续求解仍得到正确结论，确认中断后的状态可复用。
 
 ```bash
 moon check --deny-warn   # 0 warnings
-moon test                # 24 passed
+moon test                # 30 passed
 ```
 
 ## 范围边界
@@ -127,7 +129,9 @@ moon test                # 24 passed
 ## 文档与示例
 
 - [设计说明](docs/design.md)：数据结构、关键不变量，以及三次真实缺陷的成因与修法
+- [使用说明](docs/usage.md)：安装、库调用、命令行、输出格式与常见问题
 - [API 参考](docs/api.md)：公开接口逐项说明
+- [实现来源与合规](docs/origin.md)：算法出处、无第三方代码、许可证与校验独立性
 - [路线图](docs/roadmap.md)：已完成与计划项
 - [变更记录](CHANGELOG.md)
 - [贡献指南](CONTRIBUTING.md)
