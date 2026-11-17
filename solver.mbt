@@ -636,13 +636,29 @@ fn luby(i : Int) -> Int {
 }
 
 ///|
-/// Main CDCL search.  `assumptions` are temporary decisions on top of level 0.
-pub fn Solver::solve(self : Solver, assumptions : Array[Lit]) -> Bool {
+/// Outcome of a search.  `Unknown` only appears when a conflict budget stopped
+/// the search before it could decide.
+pub enum SolveOutcome {
+  Satisfiable
+  Unsatisfiable
+  Unknown
+}
+
+///|
+/// CDCL search with an optional conflict budget.  A negative budget means
+/// unlimited.  When the budget runs out the solver backtracks to level 0 and
+/// resets the propagation pointer, so the next call starts clean while keeping
+/// every learnt clause.
+fn Solver::search(
+  self : Solver,
+  assumptions : Array[Lit],
+  max_conflicts : Int,
+) -> SolveOutcome {
   if !self.ok {
     if self.proof is Some(p) {
       p.empty()
     }
-    return false
+    return Unsatisfiable
   }
   self.cancel_until(0)
   let confl0 = self.propagate()
@@ -651,12 +667,14 @@ pub fn Solver::solve(self : Solver, assumptions : Array[Lit]) -> Bool {
     if self.proof is Some(p) {
       p.empty()
     }
-    return false
+    return Unsatisfiable
   }
   for a in assumptions {
     let val = self.value_lit(a)
     if val == 0 {
-      return false
+      self.cancel_until(0)
+      self.qhead = self.trail.length()
+      return Unsatisfiable
     }
     if val < 0 {
       self.new_decision_level()
@@ -664,20 +682,29 @@ pub fn Solver::solve(self : Solver, assumptions : Array[Lit]) -> Bool {
     }
     let confl = self.propagate()
     if confl >= 0 {
-      return false
+      self.cancel_until(0)
+      self.qhead = self.trail.length()
+      return Unsatisfiable
     }
   }
+  let mut budget_used = 0
   while true {
     let confl = self.propagate()
     if confl >= 0 {
+      if max_conflicts >= 0 && budget_used >= max_conflicts {
+        self.cancel_until(0)
+        self.qhead = self.trail.length()
+        return Unknown
+      }
+      budget_used = budget_used + 1
       self.conflicts = self.conflicts + 1
       self.conflicts_until_restart = self.conflicts_until_restart - 1
       if self.decision_level() == 0 {
         self.ok = false
         if self.proof is Some(p) {
-      p.empty()
-    }
-        return false
+          p.empty()
+        }
+        return Unsatisfiable
       }
       let (learnt, bt) = self.analyze(confl)
       self.cancel_until(bt)
@@ -699,14 +726,35 @@ pub fn Solver::solve(self : Solver, assumptions : Array[Lit]) -> Bool {
       }
       let next = self.pick_branch()
       if next < 0 {
-        return true
+        return Satisfiable
       }
       self.new_decision_level()
       self.enqueue(next, -1)
     }
   } nobreak {
-    false
+    Unknown
   }
+}
+
+///|
+/// Main CDCL search.  `assumptions` are temporary decisions on top of level 0.
+pub fn Solver::solve(self : Solver, assumptions : Array[Lit]) -> Bool {
+  match self.search(assumptions, -1) {
+    Satisfiable => true
+    _ => false
+  }
+}
+
+///|
+/// Search that gives up after `max_conflicts` conflicts and reports `Unknown`.
+/// The learnt clauses and statistics survive, so the caller can resume with a
+/// larger budget or with `solve`.
+pub fn Solver::solve_with_budget(
+  self : Solver,
+  assumptions : Array[Lit],
+  max_conflicts : Int,
+) -> SolveOutcome {
+  self.search(assumptions, max_conflicts)
 }
 
 ///|
