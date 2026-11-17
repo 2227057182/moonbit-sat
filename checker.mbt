@@ -153,12 +153,84 @@ fn same_clause(a : Array[Lit], b : Array[Lit]) -> Bool {
 }
 
 ///|
-/// Verify a DRAT proof against the original formula.  Every added clause
-/// must be a RUP consequence of the current pool, and the proof must end with
-/// the empty clause.  Clause deletions are honoured by marking the matched
-/// clause dead.  RAT steps are not supported because the CDCL core only emits
-/// RUP steps; a non-RUP addition is reported as a failure.
-pub fn check_drat(formula : Formula, steps : Array[DratStep]) -> Bool {
+fn clause_contains(c : Array[Lit], l : Lit) -> Bool {
+  for m in c {
+    if m == l {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Build the resolvent of the candidate clause and a pool clause on the pivot,
+/// and report whether it is a tautology (which is asymmetric-tautological by
+/// definition, no propagation needed).
+fn make_resolvent(
+  candidate : Array[Lit],
+  other : Array[Lit],
+  pivot : Lit,
+) -> (Array[Lit], Bool) {
+  let out : Array[Lit] = []
+  for l in candidate {
+    if l != pivot && !clause_contains(out, l) {
+      out.push(l)
+    }
+  }
+  let neg = lit_neg(pivot)
+  for l in other {
+    if l != neg && !clause_contains(out, l) {
+      out.push(l)
+    }
+  }
+  let mut taut = false
+  for l in out {
+    if clause_contains(out, lit_neg(l)) {
+      taut = true
+      break
+    }
+  }
+  (out, taut)
+}
+
+///|
+/// Resolution asymmetric tautology check.  `lits`[0] is the pivot; every alive
+/// pool clause holding its negation must yield a resolvent that is RUP.  When
+/// the pool contains no clause with the negated pivot the check succeeds
+/// vacuously, which is what lets a solver introduce a fresh variable.
+fn rat_check(
+  pool : Array[Array[Lit]],
+  alive : Array[Bool],
+  num_vars : Int,
+  lits : Array[Lit],
+) -> Bool {
+  if lits.length() == 0 {
+    return false
+  }
+  let pivot = lits[0]
+  let neg = lit_neg(pivot)
+  let mut i = 0
+  while i < pool.length() {
+    if alive[i] && clause_contains(pool[i], neg) {
+      let (res, taut) = make_resolvent(lits, pool[i], pivot)
+      if !taut && !rup_check(pool, alive, num_vars, res) {
+        return false
+      }
+    }
+    i = i + 1
+  }
+  true
+}
+
+///|
+/// Shared driver for both checkers.  `allow_rat` turns the fallback on;
+/// `require_empty` decides whether the proof has to end with the empty clause.
+fn check_steps(
+  formula : Formula,
+  steps : Array[DratStep],
+  allow_rat : Bool,
+  require_empty : Bool,
+) -> Bool {
   let pool : Array[Array[Lit]] = []
   let alive : Array[Bool] = []
   for c in formula.clauses {
@@ -178,7 +250,9 @@ pub fn check_drat(formula : Formula, steps : Array[DratStep]) -> Bool {
       }
     } else {
       if !rup_check(pool, alive, formula.num_vars, step.lits) {
-        return false
+        if !allow_rat || !rat_check(pool, alive, formula.num_vars, step.lits) {
+          return false
+        }
       }
       pool.push(step.lits)
       alive.push(true)
@@ -187,11 +261,40 @@ pub fn check_drat(formula : Formula, steps : Array[DratStep]) -> Bool {
       }
     }
   }
-  saw_empty
+  if require_empty {
+    saw_empty
+  } else {
+    true
+  }
 }
 
 ///|
-/// Convenience wrapper: verify the textual proof for a formula.
+/// Verify a DRAT proof against the original formula, accepting RUP only.
+/// Every added clause must be a RUP consequence of the current pool, and the
+/// proof must end with the empty clause.  Clause deletions are honoured by
+/// marking the matched clause dead.  This is the mode the CDCL core produces
+/// and the mode the competition-facing claims rest on.
+pub fn check_drat(formula : Formula, steps : Array[DratStep]) -> Bool {
+  check_steps(formula, steps, false, true)
+}
+
+///|
+/// Verify a DRAT proof with the full rule set: an added clause is accepted when
+/// it is either RUP or RAT on its first literal.  This is what external tools
+/// emit when they introduce definitions that are not implied by the formula.
+/// Costs one extra propagation pass per resolvent, so it is the slower mode.
+pub fn check_drat_rat(formula : Formula, steps : Array[DratStep]) -> Bool {
+  check_steps(formula, steps, true, true)
+}
+
+///|
+/// Convenience wrapper: verify the textual proof for a formula, RUP only.
 pub fn verify_proof(formula : Formula, proof_text : String) -> Bool {
   check_drat(formula, parse_drat(proof_text))
+}
+
+///|
+/// Convenience wrapper: verify the textual proof with the RUP + RAT rule set.
+pub fn verify_proof_rat(formula : Formula, proof_text : String) -> Bool {
+  check_drat_rat(formula, parse_drat(proof_text))
 }
