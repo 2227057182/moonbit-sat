@@ -56,7 +56,7 @@
 | `Solver::add_clause` | `(lits : Array[Lit]) -> Bool` | 增量追加约束（回退到 0 层，保留学习子句）；返回 `false` 表示公式已 UNSAT |
 | `Solver::value_lit` | `(l : Lit) -> Int` | `1` 为真、`0` 为假、`-1` 为未赋值 |
 | `Solver::decision_level` | `() -> Int` | 当前决策层 |
-| `Solver::stats_string` | `() -> String` | 一行统计：决策数、传播数、冲突数、重启数、学习子句数 |
+| `Solver::stats_string` | `() -> String` | 一行统计：决策数、传播数、冲突数、重启数、学习子句数、最小化删除的字面数 |
 
 `assumptions` 的语义：按顺序在 0 层之上做临时决策。任一假设冲突时返回 `false`，但**不会**让求解器进入永久 UNSAT 状态，后续 `solve([])` 仍然有效。
 
@@ -78,9 +78,11 @@
 | --- | --- | --- |
 | `parse_drat` | `(text : String) -> Array[DratStep]` | 把 DRAT 文本解析为步骤列表 |
 | `check_drat` | `(formula : Formula, steps : Array[DratStep]) -> Bool` | 逐条 RUP 校验，并要求以空子句结束 |
+| `check_drat_rat` | `(formula : Formula, steps : Array[DratStep]) -> Bool` | RUP 失败后追加 RAT 判定，同样要求空子句 |
 | `verify_proof` | `(formula : Formula, proof_text : String) -> Bool` | `parse_drat` + `check_drat` 的组合 |
+| `verify_proof_rat` | `(formula : Formula, proof_text : String) -> Bool` | `parse_drat` + `check_drat_rat` 的组合 |
 
-`check_drat` 独立于求解器：它自己维护子句池与存活标记。只接受 RUP，遇到 RAT 步骤会判失败。删除行按内容匹配，找不到匹配时忽略。
+`check_drat` 独立于求解器：它自己维护子句池与存活标记。严格模式只接受 RUP，遇到 RAT 步骤判失败；`check_drat_rat` 用完整规则，取候选子句第一个文字为 pivot，与池中含其否定的每条子句求归结，归结式仍须为 RUP，池中没有含否定 pivot 的子句时判定成立。删除行按内容匹配，找不到匹配时忽略。
 
 返回值 `false` 表示证明不可接受，**不代表公式可满足**——它只说明这份证明没有支撑 UNSAT 结论。
 

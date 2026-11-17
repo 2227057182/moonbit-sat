@@ -9,7 +9,7 @@
 | `lit.mbt` | 字面编码与解包 | 无 |
 | `cnf.mbt` | 子句/公式数据结构、DIMACS 解析与输出、预处理 | `lit` |
 | `solver.mbt` | CDCL 搜索、证明记录、统计 | `lit`、`cnf` |
-| `checker.mbt` | DRAT 解析与独立 RUP 校验器 | `lit`、`cnf` |
+| `checker.mbt` | DRAT 解析与独立 RUP/RAT 校验器 | `lit`、`cnf` |
 | `maxsat.mbt` | WCNF 解析、Sinz 基数编码、二分最优化 | `lit`、`cnf`、`solver` |
 | `cmd/main` | 命令行入口 | 以上全部 |
 
@@ -98,7 +98,9 @@
 
 删除行按「内容匹配第一条存活子句」处理；找不到匹配时静默忽略，这与 DRAT 的宽松删除语义一致。
 
-检查器只接受 RUP，不实现 RAT。原因是 CDCL 核心只产生 RUP 步骤，支持 RAT 会引入无法被现有测试覆盖的分支。遇到非 RUP 的添加，直接判失败。
+检查器有两种模式。`check_drat` / `verify_proof` 只接受 RUP：CDCL 核心只产生 RUP 步骤，伪证明在这里必须被拒。`check_drat_rat` / `verify_proof_rat` 在 RUP 失败后追加一次 RAT 判定——取候选子句的第一个文字为 pivot，池中每条含其否定的子句与候选子句求归结，归结式仍需是 RUP（重言式直接通过）。池里没有含否定 pivot 的子句时判定成立，这正是「引入全新变量」这类定义步骤合法的原因。
+
+RAT 的成本是每条归结式跑一次传播，因此比 strict 慢；它的用途是校验外部工具（CaDiCaL、kissat 等）产出的证明。本项目求解器自己产不出非 RUP 步骤，所以自家证明在两种模式下结论一致——测试里固定了这一点。
 
 ## MaxSAT
 
@@ -112,9 +114,9 @@ WCNF 的 `p wcnf V C TOP` 中第三个数是 TOP，权重 ≥ TOP 的子句为�
 
 ## 已知边界
 
-- 证明只有 RUP，无 RAT。
+- 求解器只产 RUP 步骤；检查器的 RAT 模式面向外部证明，自家证明不会走到那条分支。
 - MaxSAT 用顺序计数器编码，总软权重受 `weight_cap` 限制。
-- 无预处理（除 `simplify` 的去重与重言消除），无并行，无子句学习最小化。
+- 无预处理（除 `simplify` 的去重与重言消除），无并行。
 - 重启用固定基数的 Luby 序列，未实现按 LBD 或冲突率自适应调整（glucose 式动态重启）。
 - 冲突预算只按冲突数计量，不支持按时间或内存中断。
 - 变量数与内存随实例规模线性增长，极大实例（千万变量级）未做压力测试。

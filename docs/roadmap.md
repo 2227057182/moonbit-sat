@@ -22,6 +22,7 @@
 - [x] 冲突预算（`solve_with_budget` 返回 `Unknown`，中断后可继续求解）
 - [x] 学习子句最小化（递归 minimization，`minimised` 统计删除的字面数）
 - [x] 基准命令 `bench`（固定随机 3-SAT 阶梯，输出搜索量）
+- [x] RAT 校验（`check_drat_rat` / `verify_proof_rat`，接受引入新变量的定义步骤）
 
 ## 计划中
 

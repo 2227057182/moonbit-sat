@@ -33,7 +33,7 @@ let s = @moonbit_sat.Solver::new(f)
 if s.solve([]) {
   println(s.model())        // Array[Bool]，下标即变量号
 }
-println(s.stats_string())   // decisions / propagations / conflicts / restarts / learnts
+println(s.stats_string())   // decisions / propagations / conflicts / restarts / learnts / minimised
 ```
 
 `parse_dimacs` 接受 `p cnf` 头；头里声明的变量数少于实际出现时自动扩大，不报错。
@@ -75,6 +75,8 @@ assert_true(@moonbit_sat.verify_proof(f, p.text()))
 
 `verify_proof` 不读取求解器状态：它把证明重放到「原公式 + 已验证子句」上，逐条做 RUP 复算，并要求结尾出现空子句。任何一步不成立或没有空子句都会返回 false。
 
+需要接受外部工具产出的证明（其中的定义步骤可能不满足 RUP）时，改用 `verify_proof_rat`：RUP 不成立后再按 pivot 求归结，要求每个归结式仍是 RUP，池中没有含否定 pivot 的子句时直接成立。两种模式互不影响，strict 模式永远不会放松判定。
+
 ### 加权 MaxSAT
 
 ```moonbit
@@ -97,6 +99,7 @@ WCNF 头格式为 `p wcnf <变量数> <子句数> <顶值>`，权重大于等于
 moon run cmd/main -- solve   "p cnf 3 2;1 2 0;-1 0"
 moon run cmd/main -- proof   "p cnf 6 9;1 2 0;..."
 moon run cmd/main -- verify  "p cnf 2 3;1 0;2 0;-1 -2 0" "1 0;2 0"
+moon run cmd/main -- verify-rat "p cnf 2 3;1 0;2 0;-1 -2 0" "1 0;2 0"
 moon run cmd/main -- maxsat  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 moon run cmd/main -- bench
 ```
@@ -109,15 +112,16 @@ moon run cmd/main -- bench
 | --- | --- |
 | `solve` | `s SATISFIABLE` + `v <文字> 0`，或 `s UNSATISFIABLE` + `-1 0` |
 | `proof` | `s UNSATISFIABLE` + 证明行 + `0` |
-| `verify` | `s VERIFIED` 或 `s PROOF-REJECTED` |
+| `verify` | `s VERIFIED` 或 `s PROOF-REJECTED`（严格 RUP） |
+| `verify-rat` | 同上，但用 RUP + RAT 规则 |
 | `maxsat` | `o <成本>` + `s OPTIMUM FOUND` |
 | `bench` | 五行 `c bench vars=… clauses=… result=… decisions=… propagations=… conflicts=… minimised=…` |
-| 任意 | 最后一行 `c decisions=… propagations=… conflicts=… restarts=… learnts=…` |
+| 任意 | 最后一行 `c decisions=… propagations=… conflicts=… restarts=… learnts=… minimised=…` |
 
 ## 常见问题
 
 **为什么证明被拒绝？**
-三种情况最常见：证明结尾没有单独的空子句子句；某条新增子句在当时的子句集上不是 RUP；子句里出现超出变量范围的编号。检查器遇到这些会返回 false 而不是跳过。
+三种情况最常见：证明结尾没有单独的空子句；某条新增子句在当时的子句集上不是 RUP（`verify` 严格模式，用 `verify-rat` 再试 RAT）；子句里出现超出变量范围的编号。检查器遇到这些会返回 false 而不是跳过。
 
 **为什么 MaxSAT 直接报错？**
 总软权重（各软子句权重之和）超过调用方给出的上限。求解器会把每条软子句展开成若干个辅助变量，权重过大意味着辅助变量与子句数量按比例膨胀，报错比静默超时更有用。
