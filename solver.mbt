@@ -607,6 +607,35 @@ fn Solver::sort_by_activity(self : Solver, xs : Array[Int]) -> Array[Int] {
 }
 
 ///|
+/// Luby sequence, 1-based: `1, 1, 2, 1, 1, 2, 4, ...`.  Used as the restart
+/// interval multiplier: short restarts stay frequent, and the occasional
+/// longer run lets the solver escape an unlucky early decision prefix.
+fn luby(i : Int) -> Int {
+  if i < 1 {
+    return 1
+  }
+  let mut x = i - 1
+  let mut size = 1
+  let mut seq = 0
+  while size < x + 1 {
+    size = 2 * size + 1
+    seq = seq + 1
+  }
+  while size - 1 != x {
+    size = (size - 1) / 2
+    seq = seq - 1
+    x = x % size
+  }
+  let mut r = 1
+  let mut k = 0
+  while k < seq {
+    r = r * 2
+    k = k + 1
+  }
+  r
+}
+
+///|
 /// Main CDCL search.  `assumptions` are temporary decisions on top of level 0.
 pub fn Solver::solve(self : Solver, assumptions : Array[Lit]) -> Bool {
   if !self.ok {
@@ -663,7 +692,7 @@ pub fn Solver::solve(self : Solver, assumptions : Array[Lit]) -> Bool {
     } else {
       if self.conflicts_until_restart <= 0 {
         self.restarts = self.restarts + 1
-        self.conflicts_until_restart = 100 * (self.restarts + 1)
+        self.conflicts_until_restart = 100 * luby(self.restarts)
         self.cancel_until(0)
         self.qhead = self.trail.length()
         continue
