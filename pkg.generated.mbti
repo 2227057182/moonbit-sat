@@ -4,6 +4,8 @@ package "2227057182/moonbit-sat"
 // Values
 pub fn check_drat(Formula, Array[DratStep]) -> Bool
 
+pub fn check_drat_rat(Formula, Array[DratStep]) -> Bool
+
 pub fn lit_is_neg(Int32) -> Bool
 
 pub fn lit_neg(Int32) -> Int32
@@ -23,6 +25,8 @@ pub fn parse_wcnf(String) -> Wcnf
 pub fn to_dimacs(Formula) -> String
 
 pub fn verify_proof(Formula, String) -> Bool
+
+pub fn verify_proof_rat(Formula, String) -> Bool
 
 // Errors
 
