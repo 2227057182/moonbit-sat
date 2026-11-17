@@ -20,14 +20,14 @@
 - [x] 命令行入口（solve / proof / verify / maxsat）
 - [x] 子句去重与重言子句消除（`Formula::simplify`）
 - [x] 冲突预算（`solve_with_budget` 返回 `Unknown`，中断后可继续求解）
+- [x] 学习子句最小化（递归 minimization，`minimised` 统计删除的字面数）
+- [x] 基准命令 `bench`（固定随机 3-SAT 阶梯，输出搜索量）
 
 ## 计划中
 
-- [ ] 学习子句最小化（递归 minimization），进一步缩短学习子句
 - [ ] RAT 步骤支持，使校验器可处理非 RUP 的证明
 - [ ] 预处理：纯文字消除、变量消除、子句自吸收
 - [ ] MaxSAT 的线性搜索编码（totalizer），放宽 `weight_cap` 限制
-- [ ] 基准脚本与公开实例集上的对比数据
 - [ ] Mooncakes 发布（需维护者在本机执行 `moon login && moon publish`）
 - [ ] 大实例压力测试（百万变量级内存与耗时）
 

@@ -98,6 +98,7 @@ moon run cmd/main -- solve   "p cnf 3 2;1 2 0;-1 0"
 moon run cmd/main -- proof   "p cnf 6 9;1 2 0;..."
 moon run cmd/main -- verify  "p cnf 2 3;1 0;2 0;-1 -2 0" "1 0;2 0"
 moon run cmd/main -- maxsat  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
+moon run cmd/main -- bench
 ```
 
 参数中的 `;` 等价于换行，公式直接内联，不需要临时文件（MoonBit core 目前没有文件系统模块）。
@@ -110,6 +111,7 @@ moon run cmd/main -- maxsat  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 | `proof` | `s UNSATISFIABLE` + 证明行 + `0` |
 | `verify` | `s VERIFIED` 或 `s PROOF-REJECTED` |
 | `maxsat` | `o <成本>` + `s OPTIMUM FOUND` |
+| `bench` | 五行 `c bench vars=… clauses=… result=… decisions=… propagations=… conflicts=… minimised=…` |
 | 任意 | 最后一行 `c decisions=… propagations=… conflicts=… restarts=… learnts=…` |
 
 ## 常见问题
