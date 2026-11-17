@@ -11,13 +11,17 @@
 ## 安装
 
 ```bash
+moon add 2227057182/moonbit-sat
+```
+
+包名导入为 `@moonbit_sat`。或从源码构建：
+
+```bash
 git clone https://github.com/2227057182/moonbit-sat.git
 cd moonbit-sat
 moon check --deny-warn
 moon test
 ```
-
-Mooncakes 发布后可直接 `moon add 2227057182/moonbit-sat`，包名导入为 `@moonbit_sat`。
 
 ## 作为库使用
 

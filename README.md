@@ -19,7 +19,12 @@
 ## 安装
 
 ```bash
-# 从 GitHub 获取（Mooncakes 发布后即可 `moon add 2227057182/moonbit-sat`）
+moon add 2227057182/moonbit-sat
+```
+
+或从源码构建：
+
+```bash
 git clone https://github.com/2227057182/moonbit-sat.git
 cd moonbit-sat
 moon check --deny-warn && moon test
