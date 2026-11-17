@@ -80,6 +80,7 @@ pub struct Solver {
   mut decisions : Int
   mut propagations : Int
   mut conflicts : Int
+  mut minimised : Int
   mut restarts : Int
   mut learnts : Array[Int]
   mut max_learnts : Int
@@ -115,6 +116,7 @@ pub fn Solver::new(formula : Formula) -> Solver {
     decisions : 0,
     propagations : 0,
     conflicts : 0,
+    minimised : 0,
     restarts : 0,
     learnts : [],
     max_learnts : 2000,
@@ -435,6 +437,90 @@ fn Solver::pick_branch(self : Solver) -> Lit {
 }
 
 ///|
+/// A literal is redundant when every path up its reason chain ends either in
+/// a literal already present in the learnt clause or at level 0.  Such a
+/// literal adds nothing and can be dropped without weakening the clause.
+fn Solver::lit_redundant(
+  self : Solver,
+  l : Lit,
+  seen : Array[Bool],
+  touched : Array[Int],
+) -> Bool {
+  let stack : Array[Lit] = [l]
+  let mut head = 0
+  while head < stack.length() {
+    let q = stack[head]
+    head = head + 1
+    let v = lit_var(q)
+    if self.levels[v] == 0 {
+      continue
+    }
+    let r = self.reasons[v]
+    if r < 0 {
+      return false
+    }
+    let cl = self.clauses[r]
+    let mut k = 0
+    let mut ok = true
+    while k < cl.lits.length() && ok {
+      let p = cl.lits[k]
+      if p != q {
+        let u = lit_var(p)
+        if !seen[u] && self.levels[u] > 0 {
+          if self.reasons[u] < 0 {
+            ok = false
+          } else {
+            seen[u] = true
+            touched.push(u)
+            stack.push(p)
+          }
+        }
+      }
+      k = k + 1
+    }
+    if !ok {
+      return false
+    }
+  }
+  true
+}
+
+///|
+/// Basic recursive clause minimisation.  The asserting literal stays at index
+/// 0; every other literal whose reason chain is fully covered by the clause or
+/// by level 0 is dropped.  Returns the shortened clause and the drop count.
+fn Solver::minimize_learnt(
+  self : Solver,
+  learnt : Array[Lit],
+  seen : Array[Bool],
+) -> (Array[Lit], Int) {
+  let keep : Array[Lit] = [learnt[0]]
+  let cleared : Array[Int] = []
+  let mut removed = 0
+  let mut i = 1
+  while i < learnt.length() {
+    let touched : Array[Int] = []
+    if self.lit_redundant(learnt[i], seen, touched) {
+      removed = removed + 1
+      for v in touched {
+        cleared.push(v)
+      }
+      cleared.push(lit_var(learnt[i]))
+    } else {
+      for v in touched {
+        seen[v] = false
+      }
+      keep.push(learnt[i])
+    }
+    i = i + 1
+  }
+  for v in cleared {
+    seen[v] = false
+  }
+  (keep, removed)
+}
+
+///|
 /// 1-UIP conflict analysis.  Returns the learnt clause and the level to
 /// backjump to.  The asserting literal is placed at index 0.
 fn Solver::analyze(self : Solver, confl : Int) -> (Array[Lit], Int) {
@@ -480,25 +566,31 @@ fn Solver::analyze(self : Solver, confl : Int) -> (Array[Lit], Int) {
   for l in learnt {
     out.push(l)
   }
+  // 递归最小化：先把学习子句内的变量标进 seen，再沿 reason 链判断能否删字面
+  for l in out {
+    seen[lit_var(l)] = true
+  }
+  let (kept, removed) = self.minimize_learnt(out, seen)
+  self.minimised = self.minimised + removed
   for l in out {
     seen[lit_var(l)] = false
   }
   let mut bt = 0
-  if out.length() > 1 {
+  if kept.length() > 1 {
     let mut max_i = 1
     let mut i = 2
-    while i < out.length() {
-      if self.levels[lit_var(out[i])] > self.levels[lit_var(out[max_i])] {
+    while i < kept.length() {
+      if self.levels[lit_var(kept[i])] > self.levels[lit_var(kept[max_i])] {
         max_i = i
       }
       i = i + 1
     }
-    let t = out[1]
-    out[1] = out[max_i]
-    out[max_i] = t
-    bt = self.levels[lit_var(out[1])]
+    let t = kept[1]
+    kept[1] = kept[max_i]
+    kept[max_i] = t
+    bt = self.levels[lit_var(kept[1])]
   }
-  (out, bt)
+  (kept, bt)
 }
 
 ///|
@@ -816,5 +908,5 @@ pub fn Solver::add_clause(self : Solver, lits : Array[Lit]) -> Bool {
 ///|
 /// Statistics rendered as a single line, useful for benchmarks and CI output.
 pub fn Solver::stats_string(self : Solver) -> String {
-  "decisions=\{self.decisions} propagations=\{self.propagations} conflicts=\{self.conflicts} restarts=\{self.restarts} learnts=\{self.learnts.length()}"
+  "decisions=\{self.decisions} propagations=\{self.propagations} conflicts=\{self.conflicts} restarts=\{self.restarts} learnts=\{self.learnts.length()} minimised=\{self.minimised}"
 }
