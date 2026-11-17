@@ -94,6 +94,7 @@ pub struct Solver {
   mut decisions : Int32
   mut propagations : Int32
   mut conflicts : Int32
+  mut minimised : Int32
   mut restarts : Int32
   mut learnts : Array[Int32]
   mut max_learnts : Int32
