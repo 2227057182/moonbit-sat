@@ -2,6 +2,23 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.2.0
+
+### 新增
+
+- `Solver::solve_with_budget` 与 `SolveOutcome`（`Satisfiable` / `Unsatisfiable` / `Unknown`）：限制冲突数，超预算即回退到 0 层并保留学习子句，可继续求解。
+- `docs/usage.md`：安装、库调用、命令行输出格式与常见问题。
+- `docs/origin.md`：算法出处、依赖情况、许可证与证明校验独立性说明。
+
+### 变更
+
+- 重启策略由线性增长改为 Luby 序列，间隔为 `100 * luby(restarts)`。
+- README 补充冲突预算说明与两份新文档的入口。
+
+### 验证
+
+- `moon check --deny-warn` 无告警；30 个测试在 wasm 与 js 后端通过。
+
 ## 0.1.1
 
 ### 新增

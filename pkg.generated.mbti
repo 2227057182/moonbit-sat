@@ -69,6 +69,12 @@ pub fn Proof::empty(Self) -> Unit
 pub fn Proof::new() -> Self
 pub fn Proof::text(Self) -> String
 
+pub enum SolveOutcome {
+  Satisfiable
+  Unsatisfiable
+  Unknown
+}
+
 pub struct Solver {
   mut num_vars : Int32
   clauses : Array[Clause]
@@ -101,6 +107,7 @@ pub fn Solver::model(Self) -> Array[Bool]
 pub fn Solver::new(Formula) -> Self
 pub fn Solver::new_var(Self) -> Int32
 pub fn Solver::solve(Self, Array[Int32]) -> Bool
+pub fn Solver::solve_with_budget(Self, Array[Int32], Int32) -> SolveOutcome
 pub fn Solver::stats_string(Self) -> String
 pub fn Solver::value_lit(Self, Int32) -> Int32
 
