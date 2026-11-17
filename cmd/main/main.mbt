@@ -12,6 +12,54 @@ fn decode(text : String) -> String {
 }
 
 ///|
+/// Deterministic random 3-SAT near the satisfiability threshold.  Used by the
+/// `bench` command so the search volume can be reproduced anywhere without
+/// shipping instance files.
+fn bench_formula(nv : Int, nc : Int, seed : Int) -> @lib.Formula {
+  let f = @lib.Formula::new(nv)
+  let mut st = seed
+  let mut c = 0
+  while c < nc {
+    let a = st % nv
+    st = (st * 1103 + 12345) % 65521
+    let mut b = st % nv
+    st = (st * 1103 + 12345) % 65521
+    if b == a {
+      b = (a + 1) % nv
+    }
+    let mut d = st % nv
+    st = (st * 1103 + 12345) % 65521
+    while d == a || d == b {
+      d = (d + 1) % nv
+    }
+    let s1 = st % 2 == 1
+    st = (st * 1103 + 12345) % 65521
+    let s2 = st % 2 == 1
+    st = (st * 1103 + 12345) % 65521
+    let s3 = st % 2 == 1
+    st = (st * 1103 + 12345) % 65521
+    f.add([@lib.lit_new(a, s1), @lib.lit_new(b, s2), @lib.lit_new(d, s3)]) |> ignore
+    c = c + 1
+  }
+  f
+}
+
+///|
+fn run_bench() -> Unit {
+  let sizes : Array[(Int, Int)] = [(20, 86), (30, 129), (40, 172), (50, 215), (60, 258)]
+  for pair in sizes {
+    let nv = pair.0
+    let nc = pair.1
+    let f = bench_formula(nv, nc, nv * 7 + 13)
+    let s = @lib.Solver::new(f)
+    let sat = s.solve([])
+    println(
+      "c bench vars=\{nv} clauses=\{nc} result=\{if sat { "SAT" } else { "UNSAT" }} \{s.stats_string()}",
+    )
+  }
+}
+
+///|
 fn usage() -> Unit {
   println("moonbit-sat — CDCL SAT / MaxSAT toolkit")
   println("")
@@ -20,6 +68,7 @@ fn usage() -> Unit {
   println("  moonbit-sat proof  <dimacs>            solve and print a DRAT proof when UNSAT")
   println("  moonbit-sat verify <dimacs> <proof>    independently check a DRAT proof")
   println("  moonbit-sat maxsat <wcnf>              optimal weighted MaxSAT cost")
+  println("  moonbit-sat bench                      search volume on a fixed random 3-SAT ladder")
   println("")
   println("`;` in the argument is treated as a newline, so formulas can be passed inline.")
 }
@@ -28,6 +77,10 @@ fn usage() -> Unit {
 fn main {
   let args = @env.args()
   if args.length() < 3 {
+    if args.length() == 2 && args[1] == "bench" {
+      run_bench()
+      return
+    }
     usage()
     return
   }
@@ -86,6 +139,8 @@ fn main {
     } catch {
       e => println("c error: \{e}")
     }
+  } else if cmd == "bench" {
+    run_bench()
   } else {
     usage()
   }
