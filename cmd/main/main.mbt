@@ -66,7 +66,8 @@ fn usage() -> Unit {
   println("usage:")
   println("  moonbit-sat solve  <dimacs>            solve a CNF, print SAT/UNSAT, model and stats")
   println("  moonbit-sat proof  <dimacs>            solve and print a DRAT proof when UNSAT")
-  println("  moonbit-sat verify <dimacs> <proof>    independently check a DRAT proof")
+  println("  moonbit-sat verify <dimacs> <proof>    independently check a DRAT proof (RUP only)")
+  println("  moonbit-sat verify-rat <dimacs> <proof> check a DRAT proof with the RUP + RAT rule set")
   println("  moonbit-sat maxsat <wcnf>              optimal weighted MaxSAT cost")
   println("  moonbit-sat bench                      search volume on a fixed random 3-SAT ladder")
   println("")
@@ -114,14 +115,19 @@ fn main {
     } catch {
       e => println("c error: \{e}")
     }
-  } else if cmd == "verify" {
+  } else if cmd == "verify" || cmd == "verify-rat" {
     if args.length() < 4 {
       usage()
       return
     }
     try {
       let f = @lib.parse_dimacs(decode(args[2]))
-      let ok = @lib.verify_proof(f, decode(args[3]))
+      let proof = decode(args[3])
+      let ok = if cmd == "verify-rat" {
+        @lib.verify_proof_rat(f, proof)
+      } else {
+        @lib.verify_proof(f, proof)
+      }
       println(if ok { "s VERIFIED" } else { "s PROOF-REJECTED" })
     } catch {
       e => println("c error: \{e}")
