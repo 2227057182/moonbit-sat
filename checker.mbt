@@ -55,9 +55,84 @@ fn scan_drat_ints(line : StringView) -> Array[Int] {
 }
 
 ///|
-fn lit_value(assigns : Array[Int], l : Lit) -> Int {
+fn lit_index(l : Lit) -> Int {
+  2 * lit_var(l) + (if lit_is_neg(l) { 1 } else { 0 })
+}
+
+///|
+/// Two-watched-literal propagator owned by the checker.  It is written
+/// independently of `solver.mbt` on purpose: the checker has to re-derive each
+/// step with code the solver does not share, so a solver bug cannot hide a bad
+/// proof.  Watchers survive between checks; only the trail is rolled back.
+priv struct CheckDb {
+  clauses : Array[Array[Lit]]
+  alive : Array[Bool]
+  watches : Array[Array[Int]]
+  values : Array[Int]
+  trail : Array[Lit]
+  mut qhead : Int
+  mut num_vars : Int
+  mut base_len : Int
+  mut inconsistent : Bool
+  buckets : Array[Array[Int]]
+}
+
+///|
+/// Order-independent hash over a clause's literals, used to find the pool entry
+/// a deletion step refers to without scanning the whole pool.
+fn clause_hash(lits : Array[Lit]) -> Int {
+  let mut h = lits.length() * 7
+  for l in lits {
+    h = (h + lit_index(l)) % 8192
+  }
+  h
+}
+
+///|
+fn CheckDb::new(num_vars : Int) -> CheckDb {
+  let watches : Array[Array[Int]] = []
+  let mut i = 0
+  while i < 2 * num_vars {
+    watches.push([])
+    i = i + 1
+  }
+  let buckets : Array[Array[Int]] = []
+  let mut b = 0
+  while b < 8192 {
+    buckets.push([])
+    b = b + 1
+  }
+  {
+    buckets : buckets,
+    clauses : [],
+    alive : [],
+    watches : watches,
+    values : Array::make(num_vars, -1),
+    trail : [],
+    qhead : 0,
+    num_vars : num_vars,
+    base_len : 0,
+    inconsistent : false,
+  }
+}
+
+///|
+fn CheckDb::ensure(self : CheckDb, v : Int) -> Unit {
+  while self.num_vars <= v {
+    self.watches.push([])
+    self.watches.push([])
+    self.values.push(-1)
+    self.num_vars = self.num_vars + 1
+  }
+}
+
+///|
+fn CheckDb::value(self : CheckDb, l : Lit) -> Int {
   let v = lit_var(l)
-  let a = assigns[v]
+  if v >= self.values.length() {
+    return -1
+  }
+  let a = self.values[v]
   if a < 0 {
     -1
   } else if lit_is_neg(l) {
@@ -68,68 +143,173 @@ fn lit_value(assigns : Array[Int], l : Lit) -> Int {
 }
 
 ///|
-/// Reverse unit propagation: assign the negation of `lits`, then run unit
-/// propagation over the alive clause pool.  Returns true when a conflict is
-/// reached, i.e. `lits` is a RUP consequence of the pool.
-fn rup_check(
-  pool : Array[Array[Lit]],
-  alive : Array[Bool],
-  num_vars : Int,
-  lits : Array[Lit],
-) -> Bool {
-  let assigns : Array[Int] = Array::make(num_vars, -1)
-  // RUP assumes the negation of the candidate clause: for each literal l
-  // in the clause, `not l` becomes true.
+/// Assign `l` true.  Returns false when that contradicts an existing value,
+/// which is itself a conflict for the caller.
+fn CheckDb::assign(self : CheckDb, l : Lit) -> Bool {
+  let v = lit_var(l)
+  let val = if lit_is_neg(l) { 0 } else { 1 }
+  let cur = self.values[v]
+  if cur >= 0 {
+    return cur == val
+  }
+  self.values[v] = val
+  self.trail.push(l)
+  true
+}
+
+///|
+/// Roll the trail back to the base layer.  Unit clauses are permanent facts
+/// about the pool, so they form a base layer that assumptions can never evict;
+/// only the tentative part of the trail is undone.  Watchers are left alone:
+/// they only record which two literals a clause is watching, which does not
+/// depend on any temporary assumption.
+fn CheckDb::reset(self : CheckDb) -> Unit {
+  let mut i = self.trail.length()
+  while i > self.base_len {
+    let l = self.trail[i - 1]
+    self.values[lit_var(l)] = -1
+    self.trail.pop() |> ignore
+    i = i - 1
+  }
+  self.qhead = 0
+}
+
+///|
+fn CheckDb::attach(self : CheckDb, ci : Int) -> Unit {
+  let c = self.clauses[ci]
+  if c.length() >= 2 {
+    self.watches[lit_index(c[0])].push(ci)
+    self.watches[lit_index(c[1])].push(ci)
+  }
+}
+
+///|
+fn CheckDb::add(self : CheckDb, lits : Array[Lit]) -> Unit {
   for l in lits {
-    let v = lit_var(l)
-    assigns[v] = if lit_is_neg(l) {
-      1
+    self.ensure(lit_var(l))
+  }
+  let ci = self.clauses.length()
+  self.clauses.push(lits)
+  self.alive.push(true)
+  self.buckets[clause_hash(lits)].push(ci)
+  self.attach(ci)
+  if lits.length() == 1 {
+    if self.assign(lits[0]) {
+      self.base_len = self.trail.length()
     } else {
-      0
+      self.inconsistent = true
     }
   }
-  let mut changed = true
-  while changed {
-    changed = false
+}
+
+///|
+/// Mark the pool clause matching a deletion step as dead.  Only the hash bucket
+/// is visited, not the whole pool.
+fn CheckDb::mark_dead(self : CheckDb, lits : Array[Lit]) -> Unit {
+  let b = self.buckets[clause_hash(lits)]
+  let mut i = 0
+  while i < b.length() {
+    let ci = b[i]
+    if self.alive[ci] && same_clause(self.clauses[ci], lits) {
+      self.alive[ci] = false
+      return
+    }
+    i = i + 1
+  }
+}
+
+///|
+/// Propagate to a fixpoint.  Returns false on conflict.
+fn CheckDb::propagate(self : CheckDb) -> Bool {
+  let mut conflict = false
+  while self.qhead < self.trail.length() && !conflict {
+    let p = self.trail[self.qhead]
+    self.qhead = self.qhead + 1
+    let target = lit_neg(p)
+    let falsified = lit_index(target)
+    let ws = self.watches[falsified]
+    let mut w = 0
     let mut i = 0
-    while i < pool.length() {
-      if !alive[i] {
-        i = i + 1
+    while i < ws.length() && !conflict {
+      let ci = ws[i]
+      i = i + 1
+      if !self.alive[ci] {
         continue
       }
-      let c = pool[i]
-      let mut sat = false
-      let mut unassigned : Lit = -1
-      let mut unassigned_count = 0
-      for l in c {
-        let val = lit_value(assigns, l)
-        if val == 1 {
-          sat = true
-          break
+      let c = self.clauses[ci]
+      if c[0] == target {
+        let tmp = c[0]
+        c[0] = c[1]
+        c[1] = tmp
+      }
+      if c[1] != target {
+        ws[w] = ci
+        w = w + 1
+        continue
+      }
+      let first = c[0]
+      if self.value(first) == 1 {
+        ws[w] = ci
+        w = w + 1
+        continue
+      }
+      let mut moved = false
+      let mut k = 2
+      while k < c.length() && !moved {
+        if self.value(c[k]) != 0 {
+          let tmp = c[1]
+          c[1] = c[k]
+          c[k] = tmp
+          self.watches[lit_index(c[1])].push(ci)
+          moved = true
         }
-        if val < 0 {
-          unassigned = l
-          unassigned_count = unassigned_count + 1
+        k = k + 1
+      }
+      if !moved {
+        ws[w] = ci
+        w = w + 1
+        if self.value(first) == 0 {
+          conflict = true
+        } else {
+          self.assign(first) |> ignore
         }
       }
-      if !sat {
-        if unassigned_count == 0 {
-          return true
-        }
-        if unassigned_count == 1 {
-          let v = lit_var(unassigned)
-          assigns[v] = if lit_is_neg(unassigned) {
-            0
-          } else {
-            1
-          }
-          changed = true
-        }
-      }
+    }
+    while i < ws.length() {
+      ws[w] = ws[i]
+      w = w + 1
       i = i + 1
     }
+    while ws.length() > w {
+      ws.pop() |> ignore
+    }
   }
-  false
+  !conflict
+}
+
+///|
+/// Reverse unit propagation: assign the negation of `lits`, then propagate over
+/// the pool.  Returns true when a conflict is reached, i.e. `lits` is a RUP
+/// consequence of the pool.
+fn rup_check(db : CheckDb, lits : Array[Lit]) -> Bool {
+  if db.inconsistent {
+    return true
+  }
+  db.reset()
+  let mut consistent = true
+  for l in lits {
+    if !db.assign(lit_neg(l)) {
+      consistent = false
+      break
+    }
+  }
+  if !consistent {
+    db.reset()
+    return true
+  }
+  let no_conflict = db.propagate()
+  db.reset()
+  !no_conflict
 }
 
 ///|
@@ -198,22 +378,17 @@ fn make_resolvent(
 /// pool clause holding its negation must yield a resolvent that is RUP.  When
 /// the pool contains no clause with the negated pivot the check succeeds
 /// vacuously, which is what lets a solver introduce a fresh variable.
-fn rat_check(
-  pool : Array[Array[Lit]],
-  alive : Array[Bool],
-  num_vars : Int,
-  lits : Array[Lit],
-) -> Bool {
+fn rat_check(db : CheckDb, lits : Array[Lit]) -> Bool {
   if lits.length() == 0 {
     return false
   }
   let pivot = lits[0]
   let neg = lit_neg(pivot)
   let mut i = 0
-  while i < pool.length() {
-    if alive[i] && clause_contains(pool[i], neg) {
-      let (res, taut) = make_resolvent(lits, pool[i], pivot)
-      if !taut && !rup_check(pool, alive, num_vars, res) {
+  while i < db.clauses.length() {
+    if db.alive[i] && clause_contains(db.clauses[i], neg) {
+      let (res, taut) = make_resolvent(lits, db.clauses[i], pivot)
+      if !taut && !rup_check(db, res) {
         return false
       }
     }
@@ -231,31 +406,21 @@ fn check_steps(
   allow_rat : Bool,
   require_empty : Bool,
 ) -> Bool {
-  let pool : Array[Array[Lit]] = []
-  let alive : Array[Bool] = []
+  let db = CheckDb::new(formula.num_vars)
   for c in formula.clauses {
-    pool.push(c.lits)
-    alive.push(true)
+    db.add(c.lits)
   }
   let mut saw_empty = false
   for step in steps {
     if step.is_delete {
-      let mut i = 0
-      while i < pool.length() {
-        if alive[i] && same_clause(pool[i], step.lits) {
-          alive[i] = false
-          break
-        }
-        i = i + 1
-      }
+      db.mark_dead(step.lits)
     } else {
-      if !rup_check(pool, alive, formula.num_vars, step.lits) {
-        if !allow_rat || !rat_check(pool, alive, formula.num_vars, step.lits) {
+      if !rup_check(db, step.lits) {
+        if !allow_rat || !rat_check(db, step.lits) {
           return false
         }
       }
-      pool.push(step.lits)
-      alive.push(true)
+      db.add(step.lits)
       if step.lits.length() == 0 {
         saw_empty = true
       }
@@ -282,7 +447,6 @@ pub fn check_drat(formula : Formula, steps : Array[DratStep]) -> Bool {
 /// Verify a DRAT proof with the full rule set: an added clause is accepted when
 /// it is either RUP or RAT on its first literal.  This is what external tools
 /// emit when they introduce definitions that are not implied by the formula.
-/// Costs one extra propagation pass per resolvent, so it is the slower mode.
 pub fn check_drat_rat(formula : Formula, steps : Array[DratStep]) -> Bool {
   check_steps(formula, steps, true, true)
 }
