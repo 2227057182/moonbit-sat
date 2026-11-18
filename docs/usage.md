@@ -102,6 +102,7 @@ moon run cmd/main -- verify  "p cnf 2 3;1 0;2 0;-1 -2 0" "1 0;2 0"
 moon run cmd/main -- verify-rat "p cnf 2 3;1 0;2 0;-1 -2 0" "1 0;2 0"
 moon run cmd/main -- maxsat  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 moon run cmd/main -- bench
+moon run cmd/main -- bench-verify 9
 ```
 
 参数中的 `;` 等价于换行，公式直接内联，不需要临时文件（MoonBit core 目前没有文件系统模块）。
@@ -116,6 +117,7 @@ moon run cmd/main -- bench
 | `verify-rat` | 同上，但用 RUP + RAT 规则 |
 | `maxsat` | `o <成本>` + `s OPTIMUM FOUND` |
 | `bench` | 五行 `c bench vars=… clauses=… result=… decisions=… propagations=… conflicts=… minimised=…` |
+| `bench-verify <k>` | `c verify k=… vars=… proof_lines=… sat=… result=VERIFIED` 或 `… REJECTED` |
 | 任意 | 最后一行 `c decisions=… propagations=… conflicts=… restarts=… learnts=… minimised=…` |
 
 ## 常见问题
@@ -131,6 +133,9 @@ moon run cmd/main -- bench
 
 **求解器支持文件读写吗？**
 库与命令行都不做文件 IO，因为 MoonBit core 当前没有 fs 模块。需要读文件时，在调用方读入文本再传给 `parse_dimacs` / `parse_wcnf`。
+
+**为什么大证明要用 `bench-verify` 而不是 `verify`？**
+操作系统对单个命令行参数有上限（Linux 128KB、Windows 约 32KB），一万行的证明就会 `Argument list too long`。`bench-verify <k>` 在同一进程里构造 `k` 鸽 `k-1` 洞实例、求解、取证明、校验并打印行数，不经过命令行。检查外部文件时走库 API `verify_proof(formula, text)`，把文本读进来再传即可。
 
 **为什么没有并行和变量消除？**
 两者都会改变四后端的一致性假设或增加实现风险，当前版本不做；见 [roadmap.md](roadmap.md)。
