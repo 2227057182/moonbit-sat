@@ -52,6 +52,7 @@
 | `Solver::new_var` | `() -> Int` | 分配新变量，返回其下标（供编码使用） |
 | `Solver::enable_proof` | `() -> Proof` | 打开证明记录，返回可读取的 `Proof` |
 | `Solver::solve` | `(assumptions : Array[Lit]) -> Bool` | 求解。返回 `true` 时可调用 `model()`；返回 `false` 表示当前假设下不可满足 |
+| `Solver::solve_core` | `(assumptions : Array[Lit]) -> (Bool, Array[Lit])` | 同 `solve`，UNSAT 时额外返回假设的一个子集，该子集本身不可满足；空数组表示与假设无关、硬子句本身 UNSAT |
 | `Solver::model` | `() -> Array[Bool]` | 每个变量的取值，未赋值变量按 `false` 处理 |
 | `Solver::add_clause` | `(lits : Array[Lit]) -> Bool` | 增量追加约束（回退到 0 层，保留学习子句）；返回 `false` 表示公式已 UNSAT |
 | `Solver::value_lit` | `(l : Lit) -> Int` | `1` 为真、`0` 为假、`-1` 为未赋值 |
@@ -59,6 +60,8 @@
 | `Solver::stats_string` | `() -> String` | 一行统计：决策数、传播数、冲突数、重启数、学习子句数、最小化删除的字面数 |
 
 `assumptions` 的语义：按顺序在 0 层之上做临时决策。任一假设冲突时返回 `false`，但**不会**让求解器进入永久 UNSAT 状态，后续 `solve([])` 仍然有效。
+
+`solve_core` 返回的 core 不保证最小：它来自最终冲突的 reason 图回溯（`analyze_final`），只收集为假设建立的决策层，因此可能比最小 core 大。它的用途是「解释为什么这组假设不成立」以及给 MaxSAT 提供下界，不是做最小化。任何时候都成立的性质只有两条：core ⊆ assumptions，且 core 单独作为假设求解仍是 UNSAT。
 
 ## 证明 `Proof`
 
@@ -94,6 +97,9 @@
 | --- | --- | --- |
 | `parse_wcnf` | `(text : String) -> Wcnf` | 解析 `p wcnf V C TOP` 格式；权重 ≥ TOP 为硬子句 |
 | `maxsat_solve` | `(w : Wcnf, weight_cap : Int) -> Int raise` | 返回最小软代价；硬子句 UNSAT 时返回 `-1`；总软权重超过 `weight_cap` 时抛出异常 |
+| `maxsat_core_bound` | `(w : Wcnf) -> Int` | 一个 unsat core 给出的代价下界（core 中最便宜的软子句必然被违反）；硬子句 UNSAT 返回 `-1`，软子句可全满足返回 `0` |
+
+`maxsat_solve` 的二分区下端点由 `maxsat_core_bound` 起步：既然某个 core 里最便宜的一条必然被违反，比它更小的代价不可能达到，这部分判定可以直接跳过。完整 OLL/WPM1 需要的权重拆解尚未实现，见 [roadmap.md](roadmap.md)。
 
 `Wcnf` 的字段 `num_vars`、`top`、`hard`、`soft`、`weights` 可直接读取，便于调用方检查解析结果。
 

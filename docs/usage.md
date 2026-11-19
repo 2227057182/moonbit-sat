@@ -62,6 +62,21 @@ match s.solve_with_budget([], 500) {
 
 预算用尽时求解器回退到 0 层、重置传播指针，之后可以继续调用 `solve` 或换更大的预算重来，已学子句不会丢。这是给外部调度用的接口：宁可返回 `Unknown`，也不无限占用时间。
 
+### 提取 unsat core
+
+```moonbit
+let s = @moonbit_sat.Solver::new(f)
+let (sat, core) = s.solve_core([
+  @moonbit_sat.lit_new(0, false),
+  @moonbit_sat.lit_new(1, false),
+])
+if !sat {
+  println(core)   // 这些假设放在一起就矛盾，单独拿它们再求解仍然是 UNSAT
+}
+```
+
+core 不保证最小，只保证「子集 + 本身不可满足」。空数组意味着与假设无关，硬子句自己就不可满足。
+
 ### 证明与独立校验
 
 ```moonbit
@@ -101,6 +116,7 @@ moon run cmd/main -- proof   "p cnf 6 9;1 2 0;..."
 moon run cmd/main -- verify  "p cnf 2 3;1 0;2 0;-1 -2 0" "1 0;2 0"
 moon run cmd/main -- verify-rat "p cnf 2 3;1 0;2 0;-1 -2 0" "1 0;2 0"
 moon run cmd/main -- maxsat  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
+moon run cmd/main -- core    "p cnf 2 2;1 2 0;-1 -2 0" "1 2"
 moon run cmd/main -- bench
 moon run cmd/main -- bench-verify 9
 ```
@@ -116,6 +132,7 @@ moon run cmd/main -- bench-verify 9
 | `verify` | `s VERIFIED` 或 `s PROOF-REJECTED`（严格 RUP） |
 | `verify-rat` | 同上，但用 RUP + RAT 规则 |
 | `maxsat` | `o <成本>` + `s OPTIMUM FOUND` |
+| `core` | `s UNSATISFIABLE` + `c core= <文字> 0`；或 `s SATISFIABLE` |
 | `bench` | 五行 `c bench vars=… clauses=… result=… decisions=… propagations=… conflicts=… minimised=…` |
 | `bench-verify <k>` | `c verify k=… vars=… proof_lines=… sat=… result=VERIFIED` 或 `… REJECTED` |
 | 任意 | 最后一行 `c decisions=… propagations=… conflicts=… restarts=… learnts=… minimised=…` |

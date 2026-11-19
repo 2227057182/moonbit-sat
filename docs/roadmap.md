@@ -25,6 +25,9 @@
 - [x] RAT 校验（`check_drat_rat` / `verify_proof_rat`，接受引入新变量的定义步骤）
 - [x] 检查器两文字监听增量传播（替换逐条全池扫描，k=9 证明校验提速 5.5 倍）
 - [x] 基准命令 `bench-verify`（进程内构造鸽巢实例、求解、校验并打印证明行数，绕开命令行参数上限）
+- [x] UNSAT core 提取（`solve_core`，沿最终冲突的 reason 图回溯）与 MaxSAT 的 core 下界（`maxsat_core_bound`，用于收紧二分区下端点）
+
+- [ ] 完整 OLL/WPM1 core-guided MaxSAT：需要稳定的松弛变量体系与权重拆解（每轮扣掉 core 的最小权重、把 core 的析取作为新软子句回收），当前只做了 core 提取与下界
 
 ## 计划中
 

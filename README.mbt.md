@@ -9,6 +9,7 @@
 | --- | --- |
 | CDCL 求解 | 两文字监听、1-UIP 学习子句、VSIDS 活动度、Luby 序列重启、子句库归约、相位保存 |
 | 增量求解 | `solve(assumptions)` 可反复调用，带 assumption 的 UNSAT 不污染后续求解状态 |
+| UNSAT core | `solve_core(assumptions)` 在 UNSAT 时返回一个本身不可满足的假设子集，可用来解释冲突，也给 MaxSAT 提供下界 |
 | 冲突预算 | `solve_with_budget` 在给定冲突数后返回 `Unknown`，回退到 0 层，可继续求解 |
 | UNSAT 证明 | 每个学习子句与最终空子句写入 DRAT 风格日志，可交给第三方检查器复算 |
 | 独立检查器 | 项目自带 `check_drat` / `verify_proof`（RUP）与 `check_drat_rat` / `verify_proof_rat`（RUP + RAT），不信任求解器 |
@@ -108,6 +109,7 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 | UNSAT 证明 | 无 | 无 | **DRAT 风格日志 + 自带独立检查器（RUP 与 RUP+RAT 两种模式）** |
 | 加权优化 | 无 | 无 | **加权 partial MaxSAT（Sinz 编码 + 二分）** |
 | 增量假设 | 不明确 | 有（`solve_with_assumptions`） | **有，且 assumption 冲突不污染状态** |
+| UNSAT core | 无 | 无 | **有（`solve_core`，返回的 core 可单独回代复验）** |
 
 `clbbbb/lrat-check` 只有检查器、没有求解器；本项目两者同仓、可相互印证。
 
