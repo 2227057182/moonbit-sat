@@ -197,6 +197,9 @@ fn usage() -> Unit {
   println("  moonbit-sat verify <dimacs> <proof>    independently check a DRAT proof (RUP only)")
   println("  moonbit-sat verify-rat <dimacs> <proof> check a DRAT proof with the RUP + RAT rule set")
   println("  moonbit-sat maxsat <wcnf>              optimal weighted MaxSAT cost")
+  println("  moonbit-sat maxsat-proof <wcnf> <k>   DRAT proof that cost <= k is unreachable")
+  println("  moonbit-sat verify-maxsat <wcnf> <k> <proof>  re-check a lower-bound proof")
+  println("  moonbit-sat maxsat-verify <wcnf>      solve, export the optimality bound proof and check it")
   println("  moonbit-sat core   <dimacs> <lits>     unsat core of the given assumptions")
   println("  moonbit-sat grid-wcnf <rows> <cols>    print a grid minimum-vertex-cover WCNF instance")
   println("  moonbit-sat bench                      search volume on a fixed random 3-SAT ladder")
@@ -272,6 +275,52 @@ fn main {
       } else {
         println("o \{opt}")
         println("s OPTIMUM FOUND")
+      }
+    } catch {
+      e => println("c error: \{e}")
+    }
+  } else if cmd == "maxsat-proof" {
+    if args.length() < 4 {
+      usage()
+      return
+    }
+    let w = @lib.parse_wcnf(decode(args[2]))
+    let k = parse_uint(args[3])
+    match @lib.maxsat_bound_proof(w, k) {
+      Some(p) => {
+        println("s UNSATISFIABLE (cost <= \{k} unreachable)")
+        println(p)
+      }
+      None => println("s SATISFIABLE (cost <= \{k} achievable)")
+    }
+  } else if cmd == "verify-maxsat" {
+    if args.length() < 5 {
+      usage()
+      return
+    }
+    let w = @lib.parse_wcnf(decode(args[2]))
+    let k = parse_uint(args[3])
+    let proof = decode(args[4])
+    let ok = @lib.verify_maxsat_bound(w, k, proof)
+    println(if ok { "s VERIFIED" } else { "s PROOF-REJECTED" })
+  } else if cmd == "maxsat-verify" {
+    try {
+      let w = @lib.parse_wcnf(decode(args[2]))
+      let opt = @lib.maxsat_solve(w, 512)
+      if opt < 0 {
+        println("s UNSATISFIABLE (hard clauses)")
+      } else if opt == 0 {
+        println("o 0")
+        println("s OPTIMALITY-VERIFIED (no soft clause needs to fail)")
+      } else {
+        match @lib.maxsat_bound_proof(w, opt - 1) {
+          Some(p) => {
+            let ok = @lib.verify_maxsat_bound(w, opt - 1, p)
+            println("o \{opt}")
+            println(if ok { "s OPTIMALITY-VERIFIED" } else { "s PROOF-REJECTED" })
+          }
+          None => println("c error: no refutation for cost \{opt - 1}")
+        }
       }
     } catch {
       e => println("c error: \{e}")
