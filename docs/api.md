@@ -98,6 +98,9 @@
 | `parse_wcnf` | `(text : String) -> Wcnf` | 解析 `p wcnf V C TOP` 格式；权重 ≥ TOP 为硬子句 |
 | `maxsat_solve` | `(w : Wcnf, weight_cap : Int) -> Int raise` | 返回最小软代价；硬子句 UNSAT 时返回 `-1`；总软权重超过 `weight_cap` 时抛出异常 |
 | `maxsat_core_bound` | `(w : Wcnf) -> Int` | 一个 unsat core 给出的代价下界（core 中最便宜的软子句必然被违反）；硬子句 UNSAT 返回 `-1`，软子句可全满足返回 `0` |
+| `maxsat_encoding` | `(w : Wcnf, k : Int) -> Formula` | 「软代价 ≤ `k` 是否可行」对应的 CNF；确定性构造，同参数必得同公式 |
+| `maxsat_bound_proof` | `(w : Wcnf, k : Int) -> String?` | 代价 `k` 不可达时返回 DRAT 证明，可达时返回 `None` |
+| `verify_maxsat_bound` | `(w : Wcnf, k : Int, proof : String) -> Bool` | 重建 `maxsat_encoding(w, k)` 后重放证明，判定 `k` 是否真的不可达 |
 
 `maxsat_solve` 的二分区下端点由 `maxsat_core_bound` 起步：既然某个 core 里最便宜的一条必然被违反，比它更小的代价不可能达到，这部分判定可以直接跳过。完整 OLL/WPM1 需要的权重拆解尚未实现，见 [roadmap.md](roadmap.md)。
 
@@ -110,6 +113,9 @@ moon run cmd/main -- solve "<DIMACS 文本>"
 moon run cmd/main -- proof "<DIMACS 文本>"
 moon run cmd/main -- verify "<DIMACS 文本>" "<DRAT 文本>"
 moon run cmd/main -- maxsat "<WCNF 文本>" <weight_cap>
+moon run cmd/main -- maxsat-proof "<WCNF 文本>" <k>
+moon run cmd/main -- verify-maxsat "<WCNF 文本>" <k> "<DRAT 文本>"
+moon run cmd/main -- maxsat-verify "<WCNF 文本>"
 ```
 
 命令行不接受文件 IO（MoonBit core 目前没有文件系统模块），文本参数中用 `;` 代替换行。示例：

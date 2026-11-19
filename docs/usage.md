@@ -118,6 +118,9 @@ moon run cmd/main -- verify-rat "p cnf 2 3;1 0;2 0;-1 -2 0" "1 0;2 0"
 moon run cmd/main -- maxsat  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 moon run cmd/main -- core    "p cnf 2 2;1 2 0;-1 -2 0" "1 2"
 moon run cmd/main -- grid-wcnf 10 10
+moon run cmd/main -- maxsat-proof  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0
+moon run cmd/main -- verify-maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0 "<DRAT 文本>"
+moon run cmd/main -- maxsat-verify "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 moon run cmd/main -- bench
 moon run cmd/main -- bench-verify 9
 ```
@@ -135,6 +138,9 @@ moon run cmd/main -- bench-verify 9
 | `maxsat` | `o <成本>` + `s OPTIMUM FOUND` |
 | `core` | `s UNSATISFIABLE` + `c core= <文字> 0`；或 `s SATISFIABLE` |
 | `grid-wcnf` | 把 WCNF 实例文本打印到标准输出 |
+| `maxsat-proof` | `s UNSATISFIABLE (cost <= k unreachable)` + 证明行；或 `s SATISFIABLE (cost <= k achievable)` |
+| `verify-maxsat` | `s VERIFIED` 或 `s PROOF-REJECTED`（重建同一编码后重放） |
+| `maxsat-verify` | `o <成本>` + `s OPTIMALITY-VERIFIED`（导出 `opt-1` 的下界证明并当场校验） |
 | `bench` | 五行 `c bench vars=… clauses=… result=… decisions=… propagations=… conflicts=… minimised=…` |
 | `bench-verify <k>` | `c verify k=… vars=… proof_lines=… sat=… result=VERIFIED` 或 `… REJECTED` |
 | 任意 | 最后一行 `c decisions=… propagations=… conflicts=… restarts=… learnts=… minimised=…` |

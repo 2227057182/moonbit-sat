@@ -102,7 +102,57 @@ moon run cmd/main -- verify "p cnf 6 9;..." "-1 0;0"
 
 第二条命令输出 `s VERIFIED`。把证明换成任意一条非 RUP 的子句（例如可满足实例上的 `1 0;0`），输出 `s PROOF-REJECTED`。
 
-## 为什么「独立」很重要
+## MaxSAT 最优性的证明
+
+到这里，能独立复算的只有 SAT 判定。MaxSAT 的最优值此前是求解器的内部断言：二分一旦收敛，`o <cost>` 就只是求解器自己说的话。
+
+补法是把它落回 SAT：判断「软子句代价不超过 `k` 是否可行」本身就是一个 CNF（`maxsat_encoding`）。于是
+
+- `k < opt` ⇔ 该 CNF 不可满足 ⇔ 可以导出一份 DRAT 证明；
+- 最优性 = 「`opt-1` 不可达」的证明 + 一个达到 `opt` 的赋值。
+
+本版本导出前者并当场校验：
+
+```
+moon run cmd/main -- maxsat-proof "p wcnf ..." 5     # 打印 k=5 的 DRAT 证明
+moon run cmd/main -- verify-maxsat  "p wcnf ..." 5 "$(cat proof)"  # 重建编码后重放
+moon run cmd/main -- maxsat-verify  "p wcnf ..."     # 求最优 + 导出 opt-1 的证明 + 校验
+```
+
+第三条命令在四个基准实例上的输出：
+
+```
+o 6   s OPTIMALITY-VERIFIED      # Petersen
+o 10  s OPTIMALITY-VERIFIED      # 4×5 网格
+o 1   s OPTIMALITY-VERIFIED      # scheduling
+o 50  s OPTIMALITY-VERIFIED      # 10×10 网格
+```
+
+### 边界：这是「可复算」，不是「零依赖」
+
+证明是对**扩展后的 CNF**给出的：里面多了每条软子句的 select 变量，以及 Sinz 计数编码分配的一批变量。校验方必须用同一个 `maxsat_encoding` 重建这份公式，才能重放 DRAT。
+
+这比「信求解器」强得多，但和 SAT 侧的性质不同：SAT 侧 `verify` 拿的是原始 CNF，任何人手上有那份 CNF 就能验；MaxSAT 侧验的是编码后的实例，编码器是前提。所以准确的措辞是**可复算**——把实例和 `k` 交给库，它会确定性重建出同一份公式（同样的输入必然得到同样的变量编号与子句顺序），然后逐条重放。编码器本身是公开源码，不存在「信一个黑箱」。
+
+### 篡改实验
+
+Petersen 的 `k=5` 证明共 14 行，末尾是空子句：
+
+```
+... 65 0
+0
+```
+
+- 原样交给 `verify-maxsat` → `s VERIFIED`
+- 删掉末尾那行 `0` → `s PROOF-REJECTED`（校验器要求证明以空子句收尾）
+- 拿同一份证明换一个 `k` 去验 → `s PROOF-REJECTED`（编码随 `k` 改变，证明不再对应；测试里对 `k=0` 与 `k=1` 做过这条）
+
+### 已知缺口
+
+- 只证「`k` 不可达」，不证「`k` 可达」——后者需要一个满足赋值，本版本不导出模型。
+- 证明规模随 `k` 与权重重复数增长：权重 100 的软子句会在松弛数组里出现 100 次，Sinz 编码随之变大。权重上限由 `maxsat_solve` 的 `weight_cap` 挡着，不是静默截断。
+- 没有把最优性证明接到外部工具链（drat-trim 等）。外部工具不认识本库的编码，需要先落地一份 CNF；这条留给 roadmap。
+
 
 如果检查器复用求解器的数据结构，一个错误的传播实现会让求解器与检查器同时出错，两边一致地给出错误结论，校验就失去意义。
 

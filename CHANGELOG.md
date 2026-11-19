@@ -2,6 +2,28 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.6.2
+
+### 新增
+
+- `maxsat_encoding(w, k) -> Formula`：把「软子句代价 ≤ k 是否可行」显式构造成一个 CNF。硬子句原样保留，每条软子句加一个 select 变量并进入按权重重复的松弛数组，再用 Sinz 计数编码限制其和。构造是确定性的——同样的实例和 k 一定得到同样的公式，这是下界证明能被复算的前提。
+- `maxsat_bound_proof(w, k) -> String?`：代价 `k` 不可达时返回一份 DRAT 证明，可达时返回 `None`。
+- `verify_maxsat_bound(w, k, proof) -> Bool`：重建同一个编码后重放证明，判定它是否真的证明了 `k` 不可达。
+- 命令行 `maxsat-proof <wcnf> <k>`、`verify-maxsat <wcnf> <k> <proof>` 与 `maxsat-verify <wcnf>`；后者一条命令完成「求最优 → 导出 `opt-1` 的下界证明 → 当场校验」。
+
+### 验证
+
+- 56 个测试在 wasm 与 js 后端通过；新增 6 个测试覆盖：不可达下界能出证且校验通过、可达下界不出证、删掉空子句后被拒、证明不能挪用到另一个 k、硬子句本身不可满足时下界证明仍可校验。
+- native 实测（Ubuntu 云主机）：`maxsat-verify` 在 Petersen（`o 6`）、4×5 网格（`o 10`）、scheduling（`o 1`）、10×10 网格（`o 50`）四个实例上均输出 `s OPTIMALITY-VERIFIED`。
+- 篡改实验：Petersen 的 `k=5` 证明共 14 行，去掉末尾空子句后由 `s VERIFIED` 变为 `s PROOF-REJECTED`。
+- 重构后原 50 个测试未变，说明把编码从「在 Solver 上增量构造」改为「写进 Formula」没有改变语义。
+
+### 边界
+
+- 证明是对**扩展后 CNF**（含 select 变量与 Sinz 计数变量）给出的，校验方必须用本库的 `maxsat_encoding` 重建同一份公式。所以这是「可复算」而不是「不看编码也能独立验」——与 SAT 侧 `verify` 拿原始 CNF 直接重放的性质不同，这一点在 `docs/proof.md` 里写明。
+- 最优性证明只覆盖「`k` 不可达」，不覆盖「`k` 可达」（后者是模型，本版本不导出）。
+- `Formula::add` 不会自动扩大 `num_vars`，编码器必须自己维护变量编号；这一点已在注释与 CHANGELOG 中记下，避免后来者踩同一个坑。
+
 ## 0.6.1
 
 ### 新增
