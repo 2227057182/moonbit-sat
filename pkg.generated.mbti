@@ -14,7 +14,11 @@ pub fn lit_new(Int32, Bool) -> Int32
 
 pub fn lit_var(Int32) -> Int32
 
+pub fn maxsat_bound_proof(Wcnf, Int32) -> String?
+
 pub fn maxsat_core_bound(Wcnf) -> Int32
+
+pub fn maxsat_encoding(Wcnf, Int32) -> Formula
 
 pub fn maxsat_solve(Wcnf, Int32) -> Int32 raise
 
@@ -25,6 +29,8 @@ pub fn parse_drat(String) -> Array[DratStep]
 pub fn parse_wcnf(String) -> Wcnf
 
 pub fn to_dimacs(Formula) -> String
+
+pub fn verify_maxsat_bound(Wcnf, Int32, String) -> Bool
 
 pub fn verify_proof(Formula, String) -> Bool
 

@@ -62,18 +62,26 @@ pub fn parse_wcnf(text : String) -> Wcnf {
 }
 
 ///|
-/// Sinz sequential-counter encoding of `sum(xs) <= k`.  The `xs` array may
-/// repeat the same literal to express a weight.
-fn add_at_most_k(s : Solver, xs : Array[Lit], k : Int) -> Unit {
+/// Sinz sequential-counter encoding of `sum(xs) <= k`, written into a formula.
+/// Variables are handed out from `start` in a fixed order and the first free
+/// index afterwards is returned, so the same arguments always yield the same
+/// formula — proofs about this encoding can be replayed later.
+fn add_at_most_k_formula(
+  f : Formula,
+  xs : Array[Lit],
+  k : Int,
+  start : Int,
+) -> Int {
   let n = xs.length()
+  let mut next = start
   if k >= n {
-    return
+    return next
   }
   if k == 0 {
     for x in xs {
-      s.add_clause([lit_neg(x)]) |> ignore
+      f.add([lit_neg(x)]) |> ignore
     }
-    return
+    return next
   }
   let rows = n - 1
   let s_vars : Array[Array[Lit]] = []
@@ -82,31 +90,69 @@ fn add_at_most_k(s : Solver, xs : Array[Lit], k : Int) -> Unit {
     let row : Array[Lit] = []
     let mut j = 0
     while j < k {
-      row.push(lit_new(s.new_var(), false))
+      row.push(lit_new(next, false))
+      next = next + 1
       j = j + 1
     }
     s_vars.push(row)
     i = i + 1
   }
-  s.add_clause([lit_neg(xs[0]), s_vars[0][0]]) |> ignore
+  f.add([lit_neg(xs[0]), s_vars[0][0]]) |> ignore
   let mut i = 1
   while i < rows {
-    s.add_clause([lit_neg(xs[i]), s_vars[i][0]]) |> ignore
-    s.add_clause([lit_neg(s_vars[i - 1][0]), s_vars[i][0]]) |> ignore
+    f.add([lit_neg(xs[i]), s_vars[i][0]]) |> ignore
+    f.add([lit_neg(s_vars[i - 1][0]), s_vars[i][0]]) |> ignore
     let mut j = 1
     while j < k {
-      s.add_clause([
+      f.add([
         lit_neg(xs[i]),
         lit_neg(s_vars[i - 1][j - 1]),
         s_vars[i][j],
       ]) |> ignore
-      s.add_clause([lit_neg(s_vars[i - 1][j]), s_vars[i][j]]) |> ignore
+      f.add([lit_neg(s_vars[i - 1][j]), s_vars[i][j]]) |> ignore
       j = j + 1
     }
-    s.add_clause([lit_neg(xs[i]), lit_neg(s_vars[i - 1][k - 1])]) |> ignore
+    f.add([lit_neg(xs[i]), lit_neg(s_vars[i - 1][k - 1])]) |> ignore
     i = i + 1
   }
-  s.add_clause([lit_neg(xs[n - 1]), lit_neg(s_vars[rows - 1][k - 1])]) |> ignore
+  f.add([lit_neg(xs[n - 1]), lit_neg(s_vars[rows - 1][k - 1])]) |> ignore
+  next
+}
+
+///|
+/// Build the cardinality-extended CNF that decides whether the soft-clause
+/// cost can stay within `k`: an enumeration of partial MaxSAT as a single SAT
+/// instance.  The construction is deterministic, which is what makes an
+/// exported lower-bound proof checkable against a freshly rebuilt encoding.
+pub fn maxsat_encoding(w : Wcnf, k : Int) -> Formula {
+  let f = Formula::new(w.num_vars)
+  for c in w.hard {
+    f.add(c) |> ignore
+  }
+  let mut next = w.num_vars
+  let relaxed : Array[Lit] = []
+  let mut i = 0
+  while i < w.soft.length() {
+    let r = lit_new(next, false)
+    next = next + 1
+    let lits : Array[Lit] = []
+    for l in w.soft[i] {
+      lits.push(l)
+    }
+    lits.push(r)
+    f.add(lits) |> ignore
+    let mut t = 0
+    while t < w.weights[i] {
+      relaxed.push(r)
+      t = t + 1
+    }
+    i = i + 1
+  }
+  let end = add_at_most_k_formula(f, relaxed, k, next)
+  if end > f.num_vars {
+    f.num_vars = end
+  }
+  f
 }
 
 ///|
@@ -164,30 +210,31 @@ pub fn maxsat_core_bound(w : Wcnf) -> Int {
 ///|
 /// Is there an assignment with total soft-clause cost `<= k`?
 fn maxsat_feasible(w : Wcnf, k : Int) -> Bool {
-  let f = Formula::new(w.num_vars)
-  for c in w.hard {
-    f.add(c) |> ignore
-  }
-  let s = Solver::new(f)
-  let relaxed : Array[Lit] = []
-  let mut i = 0
-  while i < w.soft.length() {
-    let r = lit_new(s.new_var(), false)
-    let lits : Array[Lit] = []
-    for l in w.soft[i] {
-      lits.push(l)
-    }
-    lits.push(r)
-    s.add_clause(lits) |> ignore
-    let mut t = 0
-    while t < w.weights[i] {
-      relaxed.push(r)
-      t = t + 1
-    }
-    i = i + 1
-  }
-  add_at_most_k(s, relaxed, k)
+  let s = Solver::new(maxsat_encoding(w, k))
   s.solve([])
+}
+
+///|
+/// A DRAT proof that no assignment keeps the soft cost within `k`, or `None`
+/// when such an assignment exists.  The proof is stated over the extended CNF
+/// from `maxsat_encoding`, so it can be replayed without trusting the solver
+/// run that produced it.
+pub fn maxsat_bound_proof(w : Wcnf, k : Int) -> String? {
+  let s = Solver::new(maxsat_encoding(w, k))
+  let p = s.enable_proof()
+  if s.solve([]) {
+    None
+  } else {
+    Some(p.text())
+  }
+}
+
+///|
+/// Check a lower-bound proof: rebuild the encoding for the same `k` and replay
+/// the DRAT steps against it.  A `true` answer means the proof really does
+/// establish that cost `k` is unreachable.
+pub fn verify_maxsat_bound(w : Wcnf, k : Int, proof_text : String) -> Bool {
+  verify_proof(maxsat_encoding(w, k), proof_text)
 }
 
 ///|
