@@ -129,6 +129,50 @@ fn parse_assumptions(text : String) -> Array[@lib.Lit] {
 }
 
 ///|
+fn parse_uint(text : String) -> Int {
+  let mut acc = 0
+  for c in text {
+    let code = c.to_int()
+    if code >= 48 && code <= 57 {
+      acc = acc * 10 + (code - 48)
+    }
+  }
+  acc
+}
+
+///|
+/// Render a grid minimum-vertex-cover WCNF instance: one hard clause (u v) per
+/// edge, one soft clause (-v) of weight 1 per vertex.  A grid is bipartite, so
+/// the optimum equals the maximum matching size.
+fn grid_wcnf_text(rows : Int, cols : Int) -> String {
+  let nverts = rows * cols
+  let nedges = (rows - 1) * cols + rows * (cols - 1)
+  let mut text = "c grid minimum vertex cover: hard (u v) per edge, soft (-v) weight 1 per vertex\n"
+  text = text + "p wcnf \{nverts} \{nedges + nverts} 2\n"
+  let mut r = 0
+  while r < rows {
+    let mut c = 0
+    while c < cols {
+      let v = r * cols + c + 1
+      if c + 1 < cols {
+        text = text + "2 \{v} \{v + 1} 0\n"
+      }
+      if r + 1 < rows {
+        text = text + "2 \{v} \{v + cols} 0\n"
+      }
+      c = c + 1
+    }
+    r = r + 1
+  }
+  let mut v = 1
+  while v <= nverts {
+    text = text + "1 -\{v} 0\n"
+    v = v + 1
+  }
+  text
+}
+
+///|
 fn run_bench() -> Unit {
   let sizes : Array[(Int, Int)] = [(20, 86), (30, 129), (40, 172), (50, 215), (60, 258)]
   for pair in sizes {
@@ -154,6 +198,7 @@ fn usage() -> Unit {
   println("  moonbit-sat verify-rat <dimacs> <proof> check a DRAT proof with the RUP + RAT rule set")
   println("  moonbit-sat maxsat <wcnf>              optimal weighted MaxSAT cost")
   println("  moonbit-sat core   <dimacs> <lits>     unsat core of the given assumptions")
+  println("  moonbit-sat grid-wcnf <rows> <cols>    print a grid minimum-vertex-cover WCNF instance")
   println("  moonbit-sat bench                      search volume on a fixed random 3-SAT ladder")
   println("  moonbit-sat bench-verify <k>           refute pigeonhole k/k-1 and check the proof in-process")
   println("")
@@ -263,6 +308,18 @@ fn main {
     } catch {
       e => println("c error: \{e}")
     }
+  } else if cmd == "grid-wcnf" {
+    if args.length() < 4 {
+      usage()
+      return
+    }
+    let rows = parse_uint(args[2])
+    let cols = parse_uint(args[3])
+    if rows < 2 || cols < 2 {
+      println("c error: rows and cols must be at least 2")
+      return
+    }
+    println(grid_wcnf_text(rows, cols))
   } else if cmd == "bench" {
     run_bench()
   } else if cmd == "bench-verify" {
