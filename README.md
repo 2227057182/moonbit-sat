@@ -180,9 +180,10 @@ native release 下实测，证明行数在改造前后完全相同：
 - [API 参考](docs/api.md)：公开接口逐项说明
 - [实现来源与合规](docs/origin.md)：算法出处、无第三方代码、许可证与校验独立性
 - [路线图](docs/roadmap.md)：已完成与计划项
+- [基准与对比](docs/benchmarks.md)：顶点覆盖实例、已知最优的依据与实测耗时
 - [变更记录](CHANGELOG.md)
 - [贡献指南](CONTRIBUTING.md)
-- [示例实例](examples/README.md)：可满足、不可满足、加权三个样例及运行命令
+- [示例实例](examples/README.md)：可满足、不可满足、加权、最小顶点覆盖样例及运行命令
 
 ## 开发
 

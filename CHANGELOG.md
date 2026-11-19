@@ -2,6 +2,25 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.6.1
+
+### 新增
+
+- `grid-wcnf <rows> <cols>` 子命令：把 n×m 网格的最小顶点覆盖 WCNF 实例打印到标准输出（每条边一条硬子句 `(u v)`，每个顶点一条权重 1 的软子句 `(-v)`），一条命令就能复现基准实例。
+- `examples/petersen-mwvc.wcnf` 与 `examples/grid-mwvc.wcnf`：Petersen 图与 4×5 网格的最小顶点覆盖实例。
+- `docs/benchmarks.md`：实例来源、已知最优的依据、native 实测耗时、复现命令与局限。
+- 3 个测试锁定最优值：Petersen 图 = 6、4×5 网格 = 10，以及 core 下界不超过最优。
+
+### 验证
+
+- 50 个测试在 wasm 与 js 后端通过。
+- native release 实测（Ubuntu 云主机，每个实例 5 次取最小值）：Petersen 1.1ms、4×5 1.7ms、6×6 10ms、10×10 160ms、scheduling 0.8ms；五个实例的返回值与已知最优全部一致。
+- 已知最优有独立依据：Petersen 靠「5 顶点覆盖要求独立集、而独立数是 4」的下界论证，网格靠 König 定理（二分图最小顶点覆盖 = 最大匹配）。
+
+### 说明
+
+- 对比对象是经典图上理论已知的最优值，不是 MaxSAT Evaluation 的参赛求解器；没有在工业数据集上做过比较，这一点在 `docs/benchmarks.md` 的「局限」里写明。
+
 ## 0.6.0
 
 ### 新增
