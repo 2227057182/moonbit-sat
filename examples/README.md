@@ -33,3 +33,16 @@ moon run cmd/main -- maxsat "p wcnf 4 7 10;10 1 2 0;10 3 4 0;10 -1 -3 0;10 -2 -4
 ```
 
 预期：`o 1` 与 `s OPTIMUM FOUND`——两条关于 task1 的软偏好互相冲突，最低代价为 1。
+
+## 最小顶点覆盖实例 `petersen-mwvc.wcnf` 与 `grid-mwvc.wcnf`
+
+顶点覆盖是 partial MaxSAT 的经典应用：每条边一条硬子句 `(u v)`（至少选一个端点），每个顶点一条软子句 `(-v)` 权重 1（选它就要付 1）。求解代价就是最小顶点覆盖的大小。
+
+把文件去注释、用 `;` 连成一行即可运行：
+
+```
+moon run cmd/main -- maxsat "<p wcnf ...;2 1 2 0;...>"
+```
+
+预期：`petersen-mwvc.wcnf` 输出 `o 6`，`grid-mwvc.wcnf` 输出 `o 10`——两个值都有独立的已知依据（下界论证与 König 定理），见 `docs/benchmarks.md`。
+
