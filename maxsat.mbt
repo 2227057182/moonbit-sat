@@ -110,6 +110,58 @@ fn add_at_most_k(s : Solver, xs : Array[Lit], k : Int) -> Unit {
 }
 
 ///|
+/// A lower bound on the optimal cost taken from one unsat core: the soft
+/// clauses in the core cannot all hold at once, so at least the cheapest of
+/// them is violated.  Returns `0` when every soft clause can be satisfied
+/// simultaneously, and `-1` when the hard clauses alone are unsatisfiable.
+pub fn maxsat_core_bound(w : Wcnf) -> Int {
+  let f = Formula::new(w.num_vars)
+  for c in w.hard {
+    f.add(c) |> ignore
+  }
+  let s = Solver::new(f)
+  let selectors : Array[Lit] = []
+  let mut i = 0
+  while i < w.soft.length() {
+    let r = lit_new(s.new_var(), false)
+    let lits : Array[Lit] = []
+    for l in w.soft[i] {
+      lits.push(l)
+    }
+    lits.push(lit_neg(r))
+    s.add_clause(lits) |> ignore
+    selectors.push(r)
+    i = i + 1
+  }
+  let assumptions : Array[Lit] = []
+  for r in selectors {
+    assumptions.push(r)
+  }
+  let (sat, core) = s.solve_core(assumptions)
+  if sat {
+    return 0
+  }
+  if core.length() == 0 {
+    return -1
+  }
+  let mut best = -1
+  for c in core {
+    let mut idx = 0
+    while idx < selectors.length() {
+      if selectors[idx] == c {
+        let wt = w.weights[idx]
+        if best < 0 || wt < best {
+          best = wt
+        }
+        break
+      }
+      idx = idx + 1
+    }
+  }
+  best
+}
+
+///|
 /// Is there an assignment with total soft-clause cost `<= k`?
 fn maxsat_feasible(w : Wcnf, k : Int) -> Bool {
   let f = Formula::new(w.num_vars)
@@ -156,7 +208,10 @@ pub fn maxsat_solve(w : Wcnf, weight_cap : Int) -> Int raise {
   if maxsat_feasible(w, 0) {
     return 0
   }
-  let mut lo = 1
+  // 一个 unsat core 给出下界：core 里至少有一条软子句必然被违反，所以最优
+  // 代价不会低于该 core 中最便宜的权重。用它抬高二分的下端点。
+  let core_lower = maxsat_core_bound(w)
+  let mut lo = if core_lower > 1 { core_lower } else { 1 }
   let mut hi = total
   while lo < hi {
     let mid = (lo + hi) / 2

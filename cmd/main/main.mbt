@@ -100,6 +100,35 @@ fn run_bench_verify(k : Int) -> Unit {
 }
 
 ///|
+/// Parse a whitespace/comma separated list of DIMACS literals into assumptions.
+fn parse_assumptions(text : String) -> Array[@lib.Lit] {
+  let out : Array[@lib.Lit] = []
+  let mut acc = 0
+  let mut has_digit = false
+  let mut neg = false
+  for c in text {
+    let code = c.to_int()
+    if code >= 48 && code <= 57 {
+      acc = acc * 10 + (code - 48)
+      has_digit = true
+    } else if code == 45 && !has_digit {
+      neg = true
+    } else if has_digit {
+      if acc != 0 {
+        out.push(@lib.lit_new(acc - 1, neg))
+      }
+      acc = 0
+      has_digit = false
+      neg = false
+    }
+  }
+  if has_digit && acc != 0 {
+    out.push(@lib.lit_new(acc - 1, neg))
+  }
+  out
+}
+
+///|
 fn run_bench() -> Unit {
   let sizes : Array[(Int, Int)] = [(20, 86), (30, 129), (40, 172), (50, 215), (60, 258)]
   for pair in sizes {
@@ -124,6 +153,7 @@ fn usage() -> Unit {
   println("  moonbit-sat verify <dimacs> <proof>    independently check a DRAT proof (RUP only)")
   println("  moonbit-sat verify-rat <dimacs> <proof> check a DRAT proof with the RUP + RAT rule set")
   println("  moonbit-sat maxsat <wcnf>              optimal weighted MaxSAT cost")
+  println("  moonbit-sat core   <dimacs> <lits>     unsat core of the given assumptions")
   println("  moonbit-sat bench                      search volume on a fixed random 3-SAT ladder")
   println("  moonbit-sat bench-verify <k>           refute pigeonhole k/k-1 and check the proof in-process")
   println("")
@@ -197,6 +227,38 @@ fn main {
       } else {
         println("o \{opt}")
         println("s OPTIMUM FOUND")
+      }
+    } catch {
+      e => println("c error: \{e}")
+    }
+  } else if cmd == "core" {
+    if args.length() < 4 {
+      usage()
+      return
+    }
+    try {
+      let f = @lib.parse_dimacs(decode(args[2]))
+      let assumptions = parse_assumptions(decode(args[3]))
+      let s = @lib.Solver::new(f)
+      let (sat, core) = s.solve_core(assumptions)
+      if sat {
+        println("s SATISFIABLE")
+      } else {
+        println("s UNSATISFIABLE")
+        if core.length() == 0 {
+          println("c core= (hard clauses alone are unsatisfiable)")
+        } else {
+          let mut text = ""
+          for l in core {
+            let v = if @lib.lit_is_neg(l) {
+              -(@lib.lit_var(l) + 1)
+            } else {
+              @lib.lit_var(l) + 1
+            }
+            text = text + "\{v} "
+          }
+          println("c core= \{text}0")
+        }
       }
     } catch {
       e => println("c error: \{e}")

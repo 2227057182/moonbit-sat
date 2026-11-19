@@ -14,6 +14,8 @@ pub fn lit_new(Int32, Bool) -> Int32
 
 pub fn lit_var(Int32) -> Int32
 
+pub fn maxsat_core_bound(Wcnf) -> Int32
+
 pub fn maxsat_solve(Wcnf, Int32) -> Int32 raise
 
 pub fn parse_dimacs(String) -> Formula raise
@@ -104,6 +106,7 @@ pub struct Solver {
   mut max_learnts : Int32
   mut conflicts_until_restart : Int32
   mut proof : Proof?
+  mut last_core : Array[Int32]
 }
 pub fn Solver::add_clause(Self, Array[Int32]) -> Bool
 pub fn Solver::decision_level(Self) -> Int32
@@ -112,6 +115,7 @@ pub fn Solver::model(Self) -> Array[Bool]
 pub fn Solver::new(Formula) -> Self
 pub fn Solver::new_var(Self) -> Int32
 pub fn Solver::solve(Self, Array[Int32]) -> Bool
+pub fn Solver::solve_core(Self, Array[Int32]) -> (Bool, Array[Int32])
 pub fn Solver::solve_with_budget(Self, Array[Int32], Int32) -> SolveOutcome
 pub fn Solver::stats_string(Self) -> String
 pub fn Solver::value_lit(Self, Int32) -> Int32

@@ -86,6 +86,7 @@ pub struct Solver {
   mut max_learnts : Int
   mut conflicts_until_restart : Int
   mut proof : Proof?
+  mut last_core : Array[Lit]
 }
 
 ///|
@@ -122,6 +123,7 @@ pub fn Solver::new(formula : Formula) -> Solver {
     max_learnts : 2000,
     conflicts_until_restart : 100,
     proof : None,
+    last_core : [],
   }
   let mut v = 0
   while v < n {
@@ -594,6 +596,43 @@ fn Solver::analyze(self : Solver, confl : Int) -> (Array[Lit], Int) {
 }
 
 ///|
+/// Collect a subset of the assumptions that is itself unsatisfiable, by walking
+/// the reason graph of the final conflict.  Decisions introduced for the
+/// assumptions are collected; later branch decisions are ignored, and the walk
+/// never crosses a level above `max_level`.
+fn Solver::analyze_final(self : Solver, confl : Int, max_level : Int) -> Array[Lit] {
+  let core : Array[Lit] = []
+  let seen : Array[Bool] = Array::make(self.num_vars, false)
+  for q in self.clauses[confl].lits {
+    let lv = self.levels[lit_var(q)]
+    if lv > 0 && lv <= max_level {
+      seen[lit_var(q)] = true
+    }
+  }
+  let mut i = self.trail.length() - 1
+  while i >= 0 {
+    let l = self.trail[i]
+    let v = lit_var(l)
+    if self.levels[v] <= max_level && seen[v] {
+      let r = self.reasons[v]
+      if r < 0 {
+        core.push(l)
+      } else {
+        for q in self.clauses[r].lits {
+          let lv = self.levels[lit_var(q)]
+          if lv > 0 && lv <= max_level {
+            seen[lit_var(q)] = true
+          }
+        }
+      }
+      seen[v] = false
+    }
+    i = i - 1
+  }
+  core
+}
+
+///|
 /// Compute the literal block distance of a clause (number of distinct
 /// decision levels), used for clause-database reduction.
 fn Solver::compute_lbd(self : Solver, lits : Array[Lit]) -> Int {
@@ -746,6 +785,8 @@ fn Solver::search(
   assumptions : Array[Lit],
   max_conflicts : Int,
 ) -> SolveOutcome {
+  self.last_core = []
+  let assumed : Array[Lit] = []
   if !self.ok {
     if self.proof is Some(p) {
       p.empty()
@@ -764,6 +805,13 @@ fn Solver::search(
   for a in assumptions {
     let val = self.value_lit(a)
     if val == 0 {
+      // 假设 a 已被当前赋值否定：导致它的假设连同 a 本身构成一个 core。
+      let core : Array[Lit] = []
+      for x in assumed {
+        core.push(x)
+      }
+      core.push(a)
+      self.last_core = core
       self.cancel_until(0)
       self.qhead = self.trail.length()
       return Unsatisfiable
@@ -771,9 +819,18 @@ fn Solver::search(
     if val < 0 {
       self.new_decision_level()
       self.enqueue(a, -1)
+      assumed.push(a)
     }
     let confl = self.propagate()
     if confl >= 0 {
+      let core = self.analyze_final(confl, assumed.length())
+      if core.length() == 0 {
+        for x in assumed {
+          core.push(x)
+        }
+        core.push(a)
+      }
+      self.last_core = core
       self.cancel_until(0)
       self.qhead = self.trail.length()
       return Unsatisfiable
@@ -796,6 +853,12 @@ fn Solver::search(
         if self.proof is Some(p) {
           p.empty()
         }
+        // 搜索在假设之下耗尽：全部假设构成一个合法的（未必最小的）core。
+        let core : Array[Lit] = []
+        for x in assumptions {
+          core.push(x)
+        }
+        self.last_core = core
         return Unsatisfiable
       }
       let (learnt, bt) = self.analyze(confl)
@@ -835,6 +898,25 @@ pub fn Solver::solve(self : Solver, assumptions : Array[Lit]) -> Bool {
     Satisfiable => true
     _ => false
   }
+}
+
+///|
+/// Solve under `assumptions` and, when the verdict is UNSAT, hand back a subset
+/// of the assumptions that is itself unsatisfiable.  The subset is not
+/// guaranteed minimal: it is what the final conflict's reason graph justifies,
+/// which is enough to use as an unsat core for MaxSAT bounds and for explaining
+/// why a query failed.  The core is empty when the verdict does not depend on
+/// any assumption, i.e. the hard clauses alone are unsatisfiable.
+pub fn Solver::solve_core(
+  self : Solver,
+  assumptions : Array[Lit],
+) -> (Bool, Array[Lit]) {
+  let outcome = self.search(assumptions, -1)
+  let sat = match outcome {
+    Satisfiable => true
+    _ => false
+  }
+  (sat, self.last_core)
 }
 
 ///|
