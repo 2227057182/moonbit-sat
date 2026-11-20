@@ -238,6 +238,83 @@ pub fn verify_maxsat_bound(w : Wcnf, k : Int, proof_text : String) -> Bool {
 }
 
 ///|
+/// Does one clause hold under the assignment?  Missing variables are read as
+/// false, which is the only reading that cannot manufacture a satisfied clause.
+fn clause_holds(c : Array[Lit], model : Array[Bool]) -> Bool {
+  for l in c {
+    let v = lit_var(l)
+    let value = if v < model.length() { model[v] } else { false }
+    if lit_is_neg(l) {
+      if !value {
+        return true
+      }
+    } else if value {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Cost of an assignment: the sum of weights of violated soft clauses, or `-1`
+/// when some hard clause fails.  The cost is recomputed from the assignment,
+/// never taken from the search loop that produced it.
+pub fn maxsat_model_cost(w : Wcnf, model : Array[Bool]) -> Int {
+  for c in w.hard {
+    if !clause_holds(c, model) {
+      return -1
+    }
+  }
+  let mut cost = 0
+  let mut i = 0
+  while i < w.soft.length() {
+    if !clause_holds(w.soft[i], model) {
+      cost = cost + w.weights[i]
+    }
+    i = i + 1
+  }
+  cost
+}
+
+///|
+/// Check an optimal assignment the same way a third party would: the model must
+/// satisfy every hard clause, and the recomputed soft cost must equal the
+/// claimed optimum.  This is the upper half of an optimality claim.
+pub fn verify_maxsat_solution(
+  w : Wcnf,
+  model : Array[Bool],
+  claimed_cost : Int,
+) -> Bool {
+  let cost = maxsat_model_cost(w, model)
+  if cost < 0 {
+    return false
+  }
+  cost == claimed_cost
+}
+
+///|
+/// An assignment reaching the optimum and the cost it actually pays.  `None`
+/// when the hard clauses alone are unsatisfiable.
+pub fn maxsat_solution(w : Wcnf, weight_cap : Int) -> (Array[Bool], Int)? raise {
+  let opt = maxsat_solve(w, weight_cap)
+  if opt < 0 {
+    return None
+  }
+  let s = Solver::new(maxsat_encoding(w, opt))
+  if !s.solve([]) {
+    return None
+  }
+  let full = s.model()
+  let model : Array[Bool] = []
+  let mut i = 0
+  while i < w.num_vars {
+    model.push(if i < full.length() { full[i] } else { false })
+    i = i + 1
+  }
+  Some((model, opt))
+}
+
+///|
 /// Optimal weighted MaxSAT cost, or `-1` when the hard clauses alone are
 /// unsatisfiable.  Weight totalling is capped so the cardinality encoding
 /// stays small; the cap is reported rather than silently ignored.
