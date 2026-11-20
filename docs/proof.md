@@ -106,26 +106,44 @@ moon run cmd/main -- verify "p cnf 6 9;..." "-1 0;0"
 
 到这里，能独立复算的只有 SAT 判定。MaxSAT 的最优值此前是求解器的内部断言：二分一旦收敛，`o <cost>` 就只是求解器自己说的话。
 
-补法是把它落回 SAT：判断「软子句代价不超过 `k` 是否可行」本身就是一个 CNF（`maxsat_encoding`）。于是
+补法是把它落回 SAT：判断「软子句代价不超过 `k` 是否可行」本身就是一个 CNF（`maxsat_encoding`）。于是最优性拆成两半：
 
-- `k < opt` ⇔ 该 CNF 不可满足 ⇔ 可以导出一份 DRAT 证明；
-- 最优性 = 「`opt-1` 不可达」的证明 + 一个达到 `opt` 的赋值。
+- 下界：`k < opt` ⇔ 该 CNF 不可满足 ⇔ 可以导出一份 DRAT 证明；
+- 上界：给出一个赋值，它的代价按 WCNF 原文重算恰好等于 `opt`。
 
-本版本导出前者并当场校验：
+只走通一半都会留下漏洞。没有下界，`opt` 可能偏大——也许存在更便宜的解而求解器没找到；没有上界，`opt` 可能偏小——求解器说「更便宜不可达」，但没有任何东西证明那个偏小的值真的付得起。所以两条都要。
 
-```
-moon run cmd/main -- maxsat-proof "p wcnf ..." 5     # 打印 k=5 的 DRAT 证明
-moon run cmd/main -- verify-maxsat  "p wcnf ..." 5 "$(cat proof)"  # 重建编码后重放
-moon run cmd/main -- maxsat-verify  "p wcnf ..."     # 求最优 + 导出 opt-1 的证明 + 校验
-```
-
-第三条命令在四个基准实例上的输出：
+### 下界：`opt-1` 不可达
 
 ```
-o 6   s OPTIMALITY-VERIFIED      # Petersen
-o 10  s OPTIMALITY-VERIFIED      # 4×5 网格
-o 1   s OPTIMALITY-VERIFIED      # scheduling
-o 50  s OPTIMALITY-VERIFIED      # 10×10 网格
+moon run cmd/main -- maxsat-proof "p wcnf ..." 5      # 打印 k=5 的 DRAT 证明
+moon run cmd/main -- verify-maxsat  "p wcnf ..." 5 "<DRAT 文本>"   # 重建编码后重放
+```
+
+### 上界：一个真的达到 `opt` 的赋值
+
+`maxsat_solution(w, cap)` 在拿到最优值后用同一份 `maxsat_encoding(w, opt)` 再解一次，把 model 截回原始变量数。代价不是求解器顺手报的数：`maxsat_model_cost` 只按 WCNF 原文走一遍——硬子句有任何一条不满足就返回 `-1`，否则累加被违反软子句的权重。它不读求解器的任何中间状态，所以这个数可以脱离求解过程复算。
+
+```
+moon run cmd/main -- maxsat-solution "p wcnf ..."                  # o <cost> / v ... 0 / s SOLUTION-VERIFIED
+moon run cmd/main -- verify-solution "p wcnf ..." 6 "v 1 -2 3 4 -5 6 7 -8 -9 10 0"
+```
+
+`verify-solution` 只吃外部给的代价与赋值：解析成完整赋值数组（未提到的变量按假），再复算。第三方拿到 `o` 与 `v` 两行就能自己判，不需要信任求解过程，也不需要本库先跑一遍最优性搜索。
+
+### 一条命令验两端
+
+```
+moon run cmd/main -- maxsat-verify "p wcnf ..."
+```
+
+先求 `opt`，再分别算上界与下界，输出 `o <cost>`、`c upper= <bool> lower= <bool>`，两端皆真才给 `s OPTIMALITY-VERIFIED`。四个基准实例（native release）：
+
+```
+o 6   c upper= true lower= true  s OPTIMALITY-VERIFIED      # Petersen
+o 10  c upper= true lower= true  s OPTIMALITY-VERIFIED      # 4×5 网格
+o 1   c upper= true lower= true  s OPTIMALITY-VERIFIED      # scheduling
+o 50  c upper= true lower= true  s OPTIMALITY-VERIFIED      # 10×10 网格，347ms
 ```
 
 ### 边界：这是「可复算」，不是「零依赖」
@@ -134,9 +152,11 @@ o 50  s OPTIMALITY-VERIFIED      # 10×10 网格
 
 这比「信求解器」强得多，但和 SAT 侧的性质不同：SAT 侧 `verify` 拿的是原始 CNF，任何人手上有那份 CNF 就能验；MaxSAT 侧验的是编码后的实例，编码器是前提。所以准确的措辞是**可复算**——把实例和 `k` 交给库，它会确定性重建出同一份公式（同样的输入必然得到同样的变量编号与子句顺序），然后逐条重放。编码器本身是公开源码，不存在「信一个黑箱」。
 
+上界那一半没有这个前提：代价是直接在 WCNF 上算的，任何能读 WCNF 的人都能复核；受本库语义约束的只有 `top` 阈值与重复权重的累加方式这两条。
+
 ### 篡改实验
 
-Petersen 的 `k=5` 证明共 14 行，末尾是空子句：
+证明侧（Petersen，`k=5`，证明共 14 行，末尾是空子句）：
 
 ```
 ... 65 0
@@ -147,11 +167,19 @@ Petersen 的 `k=5` 证明共 14 行，末尾是空子句：
 - 删掉末尾那行 `0` → `s PROOF-REJECTED`（校验器要求证明以空子句收尾）
 - 拿同一份证明换一个 `k` 去验 → `s PROOF-REJECTED`（编码随 `k` 改变，证明不再对应；测试里对 `k=0` 与 `k=1` 做过这条）
 
+赋值侧（Petersen，`o 6`，`v 1 -2 3 4 -5 6 7 -8 -9 10 0`）：
+
+- 原样回放 → `s SOLUTION-VERIFIED`
+- 把 `3` 翻成 `-3` → `s SOLUTION-REJECTED`（代价变了，与声称的 `6` 不符）
+- 声称代价改成 `5` → `s SOLUTION-REJECTED`
+- 全部置假 → `s SOLUTION-REJECTED`（硬子句对应的边没有顶点覆盖）
+
 ### 已知缺口
 
-- 只证「`k` 不可达」，不证「`k` 可达」——后者需要一个满足赋值，本版本不导出模型。
+- `maxsat-verify` 仍是「自己算 + 自己验」：它先 `maxsat_solve` 求 `opt`，再用同一个二分取赋值。第三方不跑求解器时，拿 `o`/`v` 与下界证明两份文本分别走 `verify-solution` 与 `verify-maxsat` 即可，这两条路径都已提供；但没有一条命令能同时接收「外部 `o`/`v` + 外部证明」并把 `opt` 也当成外部断言来验。
 - 证明规模随 `k` 与权重重复数增长：权重 100 的软子句会在松弛数组里出现 100 次，Sinz 编码随之变大。权重上限由 `maxsat_solve` 的 `weight_cap` 挡着，不是静默截断。
 - 没有把最优性证明接到外部工具链（drat-trim 等）。外部工具不认识本库的编码，需要先落地一份 CNF；这条留给 roadmap。
+- 完整 OLL/WPM1 需要的权重拆解未实现，因此大权重实例的编码体积仍然不可控。
 
 
 如果检查器复用求解器的数据结构，一个错误的传播实现会让求解器与检查器同时出错，两边一致地给出错误结论，校验就失去意义。

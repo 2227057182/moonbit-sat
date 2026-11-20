@@ -34,6 +34,17 @@ native release，Ubuntu 云主机，每个实例跑 5 次取最小值（含进�
 
 五个实例的返回值都与已知最优一致，没有一次偏差。耗时随规模上升，但绝对值仍在百毫秒级——这组实例是用来钉住「最优值正确」的，不是压性能的。
 
+双端最优性校验（`maxsat-verify`，含求最优 + 取赋值 + 复算代价 + 导出并校验 `opt-1` 的证明）：
+
+| 实例 | `c upper` / `c lower` | 耗时 |
+| --- | --- | --- |
+| `petersen-mwvc.wcnf` | `true` / `true` | 6 ms |
+| `grid-mwvc.wcnf` | `true` / `true` | 6 ms |
+| `scheduling.wcnf` | `true` / `true` | 6 ms |
+| `grid-wcnf 10 10` | `true` / `true` | 347 ms |
+
+10×10 这一行比单求解贵一倍多：`opt-1` 的编码要额外分配约 5000 个 Sinz 变量，证明生成与重放都在这个规模上做。其余三个实例的两端校验与单次求解基本同价。
+
 ## 复现
 
 ```bash
@@ -41,6 +52,8 @@ moon build --target native --release
 cd _build/native/release/build/cmd/main
 ./main grid-wcnf 10 10 | grep -v '^c' | paste -sd';' > /tmp/g
 ./main maxsat "$(cat /tmp/g)"
+./main maxsat-verify "$(cat /tmp/g)"      # 两端校验
+./main maxsat-solution "$(cat /tmp/g)"    # o + v 行，可交给 verify-solution
 ```
 
 仓库里已有的两个实例同理：去掉注释行、用 `;` 拼成一行传给 `maxsat`。

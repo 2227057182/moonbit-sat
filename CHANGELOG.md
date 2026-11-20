@@ -2,6 +2,32 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.6.3
+
+### 新增
+
+- `maxsat_solution(w, weight_cap) -> (Array[Bool], Int)?`：求最优值后在同一份编码上再解一次，把达到该值的完整赋值取回来。硬子句不可满足时返回 `None`。
+- `maxsat_model_cost(w, model) -> Int`：独立复算一个赋值的代价——硬子句任一被破坏即返回 `-1`，否则累加被违反软子句的权重。它不信任任何先前的求解结果，只按 WCNF 原文重算。
+- `verify_maxsat_solution(w, model, claimed_cost) -> Bool`：声称的代价与实际重算结果必须一致。
+- 命令行 `maxsat-solution <wcnf>`：输出 `o <cost>`、`v <lits> 0` 与 `s SOLUTION-VERIFIED`，拿到的是可以直接抄进别的工具的值。
+- 命令行 `verify-solution <wcnf> <cost> <lits>`：只吃外部给的代价与赋值，重新解析后复算，用于第三方复核或篡改实验。
+
+### 变更
+
+- `maxsat-verify <wcnf>` 从「只验下界」改为双端校验：先求最优 `opt`，再分别得到上界（存在代价恰为 `opt` 且经复算通过的赋值）与下界（`opt-1` 不可达的证明），输出 `c upper= <bool> lower= <bool>`，两端皆真才给 `s OPTIMALITY-VERIFIED`。
+- **输出格式变化**：`opt=0` 的实例不再打印 `s OPTIMALITY-VERIFIED (no soft clause needs to fail)`，改为与其它实例一致的 `c upper= true lower= true` 加 `s OPTIMALITY-VERIFIED`。按旧字符串做匹配的脚本需要改。
+
+### 验证
+
+- 62 个测试在 wasm 与 js 后端通过；新增 6 个：最优赋值确实付出所声称的代价、声称代价偏大或偏小均被拒、破坏硬子句的赋值被拒、零代价实例仍给出可校验赋值、硬子句本身不可满足时返回 `None`、以及顶点覆盖实例上「上界 + 下界」合起来才判为最优。
+- native 实测（Ubuntu 云主机）：`maxsat-verify` 在 Petersen、4×5 网格、scheduling 三个实例上均输出 `c upper= true lower= true`；10×10 网格的完整双端校验耗时 347ms。
+- 篡改实验（Petersen，`o 6`）：原样回放 `s SOLUTION-VERIFIED`；把 `v` 行里的 `3` 翻成 `-3`、把声称代价改成 `5`、把全部变量置假，三种都得到 `s SOLUTION-REJECTED`。
+
+### 边界
+
+- 上界只证明「这个赋值达到 `opt`」，单独看它并不排除更低的代价；只有和 `opt-1` 不可达的证明放在一起才闭合最优性，这也是 `maxsat-verify` 现在两端都要过的原因。
+- 复算用的是本库的 WCNF 语义（`top` 值、重复权重按原样累加），不覆盖其它 MaxSAT 格式的扩展约定。
+
 ## 0.6.2
 
 ### 新增

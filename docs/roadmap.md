@@ -27,12 +27,12 @@
 - [x] 基准命令 `bench-verify`（进程内构造鸽巢实例、求解、校验并打印证明行数，绕开命令行参数上限）
 - [x] UNSAT core 提取（`solve_core`，沿最终冲突的 reason 图回溯）与 MaxSAT 的 core 下界（`maxsat_core_bound`，用于收紧二分区下端点）
 - [x] MaxSAT 最优性可复算：`maxsat_encoding` 显式构造「代价 ≤ k」的 CNF，`maxsat_bound_proof` 导出 `k` 不可达的 DRAT 证明，`verify_maxsat_bound` 重建同一编码后复算；命令行 `maxsat-proof` / `verify-maxsat` / `maxsat-verify`
-- [x] Mooncakes 发布（0.6.1、0.6.2）
+- [x] MaxSAT 上界可达：`maxsat_solution` 取回达到最优值的赋值，`maxsat_model_cost` 按 WCNF 原文复算代价，`verify_maxsat_solution` 核对声称值；命令行 `maxsat-solution` / `verify-solution`，`maxsat-verify` 升级为「上界 + 下界」双端校验
+- [x] Mooncakes 发布（0.6.1、0.6.2、0.6.3）
 
 ## 计划中
 
 - [ ] 完整 OLL/WPM1 core-guided MaxSAT：需要稳定的松弛变量体系与权重拆解（每轮扣掉 core 的最小权重、把 core 的析取作为新软子句回收），当前只做了 core 提取与下界
-- [ ] MaxSAT 模型导出：最优性证明目前只证「`opt-1` 不可达」，还缺一份「达到 `opt` 的赋值」用来闭合「最优值 = opt」这条链
 - [ ] 最优性证明接外部工具链（drat-trim 等）：外部工具不认识本库的编码，需要先落地一份扩展 CNF 再交给它
 - [ ] 校验器进一步提速：k=10 级鸽巢证明（295345 行、90 变量）仍需约 350s，瓶颈是每个文字挂着的监听条数，需要更强的 RUP 复算调度而非继续改监听结构
 - [ ] 预处理：纯文字消除、变量消除、子句自吸收

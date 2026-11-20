@@ -101,6 +101,11 @@
 | `maxsat_encoding` | `(w : Wcnf, k : Int) -> Formula` | 「软代价 ≤ `k` 是否可行」对应的 CNF；确定性构造，同参数必得同公式 |
 | `maxsat_bound_proof` | `(w : Wcnf, k : Int) -> String?` | 代价 `k` 不可达时返回 DRAT 证明，可达时返回 `None` |
 | `verify_maxsat_bound` | `(w : Wcnf, k : Int, proof : String) -> Bool` | 重建 `maxsat_encoding(w, k)` 后重放证明，判定 `k` 是否真的不可达 |
+| `maxsat_solution` | `(w : Wcnf, weight_cap : Int) -> (Array[Bool], Int)? raise` | 最优赋值与其代价；硬子句 UNSAT 返回 `None`；超权重上限抛出异常 |
+| `maxsat_model_cost` | `(w : Wcnf, model : Array[Bool]) -> Int` | 按 WCNF 原文复算代价，硬子句被破坏返回 `-1` |
+| `verify_maxsat_solution` | `(w : Wcnf, model : Array[Bool], claimed_cost : Int) -> Bool` | 声称的代价与复算结果是否一致 |
+
+`maxsat_bound_proof` 与 `maxsat_solution` 是同一件事的两端：前者说明 `opt-1` 不可达，后者给出代价恰为 `opt` 的赋值。单看任一端都不能断言最优——只有「下界不可达 + 上界可达」都成立，`opt` 才是最优值。`maxsat_model_cost` 不依赖任何求解过程，只按 WCNF 累加，因此外部拿到 `v` 行后可以独立复算。
 
 `maxsat_solve` 的二分区下端点由 `maxsat_core_bound` 起步：既然某个 core 里最便宜的一条必然被违反，比它更小的代价不可能达到，这部分判定可以直接跳过。完整 OLL/WPM1 需要的权重拆解尚未实现，见 [roadmap.md](roadmap.md)。
 
@@ -116,6 +121,8 @@ moon run cmd/main -- maxsat "<WCNF 文本>" <weight_cap>
 moon run cmd/main -- maxsat-proof "<WCNF 文本>" <k>
 moon run cmd/main -- verify-maxsat "<WCNF 文本>" <k> "<DRAT 文本>"
 moon run cmd/main -- maxsat-verify "<WCNF 文本>"
+moon run cmd/main -- maxsat-solution "<WCNF 文本>"
+moon run cmd/main -- verify-solution "<WCNF 文本>" <cost> "<lits，如 1 -2 3 0>"
 ```
 
 命令行不接受文件 IO（MoonBit core 目前没有文件系统模块），文本参数中用 `;` 代替换行。示例：

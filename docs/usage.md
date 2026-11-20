@@ -102,6 +102,21 @@ println(opt)   // 最小违约成本
 
 WCNF 头格式为 `p wcnf <变量数> <子句数> <顶值>`，权重大于等于顶值的行是硬子句，其余是带权软子句。第二个参数是允许的总软权重上限；超过会直接报错，因为截断会给出错误的最优值。
 
+要拿到最优赋值而不只是最优值：
+
+```moonbit
+match @moonbit_sat.maxsat_solution(w, 512) {
+  Some((model, cost)) => {
+    // 按 WCNF 原文复算，而不是相信求出来的数
+    println(@moonbit_sat.maxsat_model_cost(w, model) == cost)      // true
+    println(@moonbit_sat.verify_maxsat_solution(w, model, cost))   // true
+  }
+  None => println("hard clauses unsatisfiable")
+}
+```
+
+`maxsat_bound_proof(w, opt - 1)` 证明 `opt - 1` 不可达，`maxsat_solution` 给出代价恰为 `opt` 的赋值；两者同时成立才叫最优。
+
 ### 变量编号约定
 
 - DIMACS 文本里的变量从 1 开始，负号表示否定。
@@ -121,6 +136,8 @@ moon run cmd/main -- grid-wcnf 10 10
 moon run cmd/main -- maxsat-proof  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0
 moon run cmd/main -- verify-maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0 "<DRAT 文本>"
 moon run cmd/main -- maxsat-verify "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
+moon run cmd/main -- maxsat-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
+moon run cmd/main -- verify-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 1 "v 1 -2 0"
 moon run cmd/main -- bench
 moon run cmd/main -- bench-verify 9
 ```
@@ -140,7 +157,9 @@ moon run cmd/main -- bench-verify 9
 | `grid-wcnf` | 把 WCNF 实例文本打印到标准输出 |
 | `maxsat-proof` | `s UNSATISFIABLE (cost <= k unreachable)` + 证明行；或 `s SATISFIABLE (cost <= k achievable)` |
 | `verify-maxsat` | `s VERIFIED` 或 `s PROOF-REJECTED`（重建同一编码后重放） |
-| `maxsat-verify` | `o <成本>` + `s OPTIMALITY-VERIFIED`（导出 `opt-1` 的下界证明并当场校验） |
+| `maxsat-verify` | `o <成本>` + `c upper= <bool> lower= <bool>` + `s OPTIMALITY-VERIFIED`（上界赋值与 `opt-1` 的下界证明都要过） |
+| `maxsat-solution` | `o <成本>` + `v <文字> 0` + `s SOLUTION-VERIFIED`；硬子句 UNSAT 时 `s UNSATISFIABLE (hard clauses)` |
+| `verify-solution` | `s SOLUTION-VERIFIED` 或 `s SOLUTION-REJECTED`（按 WCNF 重算给定的代价与赋值） |
 | `bench` | 五行 `c bench vars=… clauses=… result=… decisions=… propagations=… conflicts=… minimised=…` |
 | `bench-verify <k>` | `c verify k=… vars=… proof_lines=… sat=… result=VERIFIED` 或 `… REJECTED` |
 | 任意 | 最后一行 `c decisions=… propagations=… conflicts=… restarts=… learnts=… minimised=…` |
