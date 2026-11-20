@@ -141,6 +141,59 @@ fn parse_uint(text : String) -> Int {
 }
 
 ///|
+/// Read a literal list ("v 1 -2 3 0") into a full assignment.  Unknown variables
+/// stay false, which is what a checker must assume for anything not claimed.
+fn parse_model(text : String, num_vars : Int) -> Array[Bool] {
+  let model : Array[Bool] = []
+  let mut i = 0
+  while i < num_vars {
+    model.push(false)
+    i = i + 1
+  }
+  for token in text.split(" ") {
+    let s = token.to_owned()
+    if s == "" || s == "v" || s == "0" {
+      continue
+    }
+    let neg = match s.get_char(0) {
+      Some('-') => true
+      _ => false
+    }
+    let start = if neg { 1 } else { 0 }
+    let mut acc = 0
+    let mut j = start
+    while j < s.length() {
+      match s.get_char(j) {
+        Some(d) => {
+          let code = d.to_int()
+          if code >= 48 && code <= 57 {
+            acc = acc * 10 + (code - 48)
+          }
+        }
+        None => ()
+      }
+      j = j + 1
+    }
+    let v = if acc > 0 {
+      if neg {
+        -acc
+      } else {
+        acc
+      }
+    } else {
+      0
+    }
+    if v != 0 {
+      let idx = if v > 0 { v - 1 } else { -v - 1 }
+      if idx < num_vars {
+        model[idx] = v > 0
+      }
+    }
+  }
+  model
+}
+
+///|
 /// Render a grid minimum-vertex-cover WCNF instance: one hard clause (u v) per
 /// edge, one soft clause (-v) of weight 1 per vertex.  A grid is bipartite, so
 /// the optimum equals the maximum matching size.
@@ -199,7 +252,9 @@ fn usage() -> Unit {
   println("  moonbit-sat maxsat <wcnf>              optimal weighted MaxSAT cost")
   println("  moonbit-sat maxsat-proof <wcnf> <k>   DRAT proof that cost <= k is unreachable")
   println("  moonbit-sat verify-maxsat <wcnf> <k> <proof>  re-check a lower-bound proof")
-  println("  moonbit-sat maxsat-verify <wcnf>      solve, export the optimality bound proof and check it")
+  println("  moonbit-sat maxsat-verify <wcnf>      check both halves of the optimum: a matching assignment and the refutation of opt-1")
+  println("  moonbit-sat maxsat-solution <wcnf>    optimal assignment and its recomputed cost")
+  println("  moonbit-sat verify-solution <wcnf> <cost> <lits>  recompute the cost of an exported assignment")
   println("  moonbit-sat core   <dimacs> <lits>     unsat core of the given assumptions")
   println("  moonbit-sat grid-wcnf <rows> <cols>    print a grid minimum-vertex-cover WCNF instance")
   println("  moonbit-sat bench                      search volume on a fixed random 3-SAT ladder")
@@ -309,21 +364,67 @@ fn main {
       let opt = @lib.maxsat_solve(w, 512)
       if opt < 0 {
         println("s UNSATISFIABLE (hard clauses)")
-      } else if opt == 0 {
-        println("o 0")
-        println("s OPTIMALITY-VERIFIED (no soft clause needs to fail)")
       } else {
-        match @lib.maxsat_bound_proof(w, opt - 1) {
-          Some(p) => {
-            let ok = @lib.verify_maxsat_bound(w, opt - 1, p)
-            println("o \{opt}")
-            println(if ok { "s OPTIMALITY-VERIFIED" } else { "s PROOF-REJECTED" })
-          }
-          None => println("c error: no refutation for cost \{opt - 1}")
+        // 上界：一个真的达到 opt 的赋值；下界：opt-1 不可达的证明。
+        let upper = match @lib.maxsat_solution(w, 512) {
+          Some((m, c)) => c == opt && @lib.verify_maxsat_solution(w, m, opt)
+          None => false
         }
+        let lower = if opt == 0 {
+          true
+        } else {
+          match @lib.maxsat_bound_proof(w, opt - 1) {
+            Some(p) => @lib.verify_maxsat_bound(w, opt - 1, p)
+            None => false
+          }
+        }
+        println("o \{opt}")
+        println("c upper= \{upper} lower= \{lower}")
+        println(if upper && lower {
+          "s OPTIMALITY-VERIFIED"
+        } else {
+          "s PROOF-REJECTED"
+        })
       }
     } catch {
       e => println("c error: \{e}")
+    }
+  } else if cmd == "maxsat-solution" {
+    try {
+      let w = @lib.parse_wcnf(decode(args[2]))
+      match @lib.maxsat_solution(w, 512) {
+        Some((model, cost)) => {
+          let mut text = ""
+          let mut i = 0
+          while i < model.length() {
+            text = text + (if model[i] { "\{i + 1} " } else { "-\{i + 1} " })
+            i = i + 1
+          }
+          println("o \{cost}")
+          println("v \{text}0")
+          println(if @lib.verify_maxsat_solution(w, model, cost) {
+            "s SOLUTION-VERIFIED"
+          } else {
+            "s SOLUTION-REJECTED"
+          })
+        }
+        None => println("s UNSATISFIABLE (hard clauses)")
+      }
+    } catch {
+      e => println("c error: \{e}")
+    }
+  } else if cmd == "verify-solution" {
+    if args.length() < 5 {
+      println("c usage: verify-solution <wcnf> <cost> <lits like \"1 -2 3 0\">")
+    } else {
+      let w = @lib.parse_wcnf(decode(args[2]))
+      let cost = parse_uint(args[3])
+      let model = parse_model(decode(args[4]), w.num_vars)
+      println(if @lib.verify_maxsat_solution(w, model, cost) {
+        "s SOLUTION-VERIFIED"
+      } else {
+        "s SOLUTION-REJECTED"
+      })
     }
   } else if cmd == "core" {
     if args.length() < 4 {
