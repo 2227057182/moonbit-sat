@@ -117,6 +117,18 @@ match @moonbit_sat.maxsat_solution(w, 512) {
 
 `maxsat_bound_proof(w, opt - 1)` 证明 `opt - 1` 不可达，`maxsat_solution` 给出代价恰为 `opt` 的赋值；两者同时成立才叫最优。
 
+`maxsat_solution` 会在超权重上限时抛异常，放在 `fn main` 里要写 `fn main raise`。不想处理异常就用 `maxsat_model`——同样的返回值，超上限时返回 `None`。初次接入建议直接用它：
+
+```moonbit
+fn main {
+  let w = @moonbit_sat.parse_wcnf("p wcnf 2 3 10\n10 1 2 0\n1 -1 0\n1 -2 0\n")
+  match @moonbit_sat.maxsat_model(w, 512) {
+    Some((model, cost)) => println("cost=\{cost} verified=\{@moonbit_sat.verify_maxsat_solution(w, model, cost)}")
+    None => println("no model (hard clauses unsat, or weight cap too small)")
+  }
+}
+```
+
 ### 变量编号约定
 
 - DIMACS 文本里的变量从 1 开始，负号表示否定。

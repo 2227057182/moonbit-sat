@@ -2,6 +2,30 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.6.4
+
+### 新增
+
+- `maxsat_model(w, weight_cap) -> (Array[Bool], Int)?`：与 `maxsat_solution` 相同的返回值，但**不抛异常**。超权重上限时返回 `None` 而不是 raise，因此普通 `fn main` 里可以直接调用，首次接入不必写 `try` 或 `fn main raise`。
+- `docs/reproduce.md`：从 clone 到六条证据的复现步骤，每条给出预期输出。
+- `docs/november.md`：本期实质新增的清单，按能力排列并标出可核对位置。
+- `README` 增加「最小可运行工程」：`moon add` 之后可直接粘贴的 `moon.pkg` 与 `main.mbt`，并给出 `moon run .` 的预期输出。
+
+### 修复
+
+- `verify` / `verify-rat` 在证明文本包含 `c` 注释行时直接 abort（进程崩溃，不是返回拒绝）。根因在 `parse_drat`：只跳过空行，其余行一律当「添加子句」处理，于是 `c decisions=1 propagations=9 …` 里的数字被当成了字面，检查器数组越界。现在只接受以数字、`-`、`d` 开头的行，`c` / `s` / `o` 等一律跳过。这个缺陷自 0.5.0 就存在，影响所有「把命令行打印的 `s` 与 `c …` 统计原样回喂给 `verify`」的用法，也让外部 DRAT 文件里的注释行无法使用。
+
+### 验证
+
+- 67 个测试在 wasm 与 js 后端通过；新增 2 个覆盖 `maxsat_model`（正常实例返回值与 `maxsat_solution` 一致、超上限返回 `None` 而同实例的 `maxsat_solution` 确实抛出），3 个覆盖注释行（带 `s` 与 `c …` 的合法证明仍 VERIFIED、只含注释的文本得到 PROOF-REJECTED 而非崩溃、空子句后跟注释仍 VERIFIED）。
+- `verify` 复验：`pigeonhole-3-2` 的证明原样回喂（含 `c …` 统计行）→ `s VERIFIED`，退出码 0；0.6.4 之前同一命令 abort。
+- 在干净的 Linux 工程里从 Mooncakes 安装 0.6.4，按 README 抄一遍代码即可 `moon run`，输出 `cost=1` 与 `verified=true`。
+
+### 边界
+
+- `maxsat_model` 把「超权重上限」与「硬子句不可满足」两种情况都折成 `None`，调用方无法区分原因。需要区分时用 `maxsat_solution` 的异常分支。
+- `moon update` / `moon add` 依赖本机有 git 可用；缺 git 时索引无法更新，报 `program not found`，与模块本身无关。
+
 ## 0.6.3
 
 ### 新增

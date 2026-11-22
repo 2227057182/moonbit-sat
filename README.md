@@ -32,6 +32,48 @@ cd moonbit-sat
 moon check --deny-warn && moon test
 ```
 
+### 最小可运行工程
+
+新建目录，按这个顺序做（先 `moon add` 再写 import，可以避开索引未更新时的解析报错）：
+
+```bash
+mkdir sat-demo && cd sat-demo
+printf 'name = "tmp/sat-demo"\nversion = "0.1.0"\n' > moon.mod
+moon update
+moon add 2227057182/moonbit-sat
+```
+
+`moon.pkg`：
+
+```moonbit
+import {
+  "2227057182/moonbit-sat" @moonbit_sat
+}
+pkgtype(kind: "executable")
+```
+
+`main.mbt`（`maxsat_model` 不抛异常，普通 `fn main` 直接可用）：
+
+```moonbit
+fn main {
+  // (x1 ∨ x2) ∧ ¬x1 ∧ ¬x2：两条软子句必有一条被违约，最优成本是 1
+  let w = @moonbit_sat.parse_wcnf("p wcnf 2 3 10\n10 1 2 0\n1 -1 0\n1 -2 0\n")
+  match @moonbit_sat.maxsat_model(w, 512) {
+    Some((model, cost)) => {
+      println("cost=\{cost}")                                                   // cost=1
+      println("verified=\{@moonbit_sat.verify_maxsat_solution(w, model, cost)}")  // verified=true
+    }
+    None => println("hard clauses unsatisfiable")
+  }
+}
+```
+
+```bash
+moon run .        # cost=1 / verified=true
+```
+
+`moon update` 靠 git 拉索引，报 `program not found: git` 时先装 git 或把 git 加进 PATH。
+
 ## 快速开始
 
 ```moonbit
@@ -122,7 +164,7 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 
 ## 正确性证据
 
-`moon test` 共 62 个测试，其中八类是硬证据：
+`moon test` 共 67 个测试，其中九类是硬证据：
 
 1. **与暴力枚举对拍**：80 轮随机 3–5 变量公式，CDCL 的 SAT/UNSAT 结论与真值表枚举逐一比对，SAT 时还验证模型确实满足每条子句。
 2. **证明自校验**：对随机 UNSAT 实例生成 DRAT 证明，再用 `verify_proof` 逐条 RUP 复算；同时有反例测试，确认非 RUP 步骤与缺失空子句都会被拒绝。
@@ -133,10 +175,11 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 7. **RAT 分支有正反两面**：在 `(x1∨x2)∧(¬x1∨x2)` 上加 `(x1)`，strict 必须拒绝、full 必须接受；在 `(¬x1∨x2)∧(¬x1∨x3)` 上加 `(x1)`，两种模式都必须拒绝，确认 RAT 不是「一律放行」。
 8. **MaxSAT 下界证明可复算**：不可达下界能出证且校验通过、可达下界不出证、删掉空子句后被拒、同一证明挪到另一个 `k` 被拒、硬子句本身不可满足时证明仍可校验；另有 4 个真实实例在 native 上跑 `maxsat-verify` 全部 `OPTIMALITY-VERIFIED`。
 9. **MaxSAT 上界可达**：最优赋值确实付出所声称的代价、声称代价偏大或偏小都被拒、破坏硬子句的赋值被拒、零代价实例仍给出可校验赋值、硬子句本身不可满足时返回 `None`；并在顶点覆盖实例上确认「上界 + 下界」两端同时成立才判最优。
+10. **证明文本容错**：注释行（`c` / `s` / `o` 开头）被跳过而不是当成子句，把命令行打印的 `s` 与 `c …` 统计原样回喂给 `verify` 仍得到 `s VERIFIED`；只含注释的文本得到 `s PROOF-REJECTED`，不是崩溃。0.6.4 之前这里会 abort，三个测试守着。
 
 ```bash
 moon check --deny-warn   # 0 warnings
-moon test                # 62 passed
+moon test                # 67 passed
 ```
 
 ## 基准

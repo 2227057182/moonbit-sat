@@ -20,6 +20,8 @@ d 3 -4 0      # 删除子句 (x3 ∨ ¬x4)
 | `d <lits> 0` | 删除子句（内容匹配） |
 | `0` | 添加空子句，证明结束 |
 
+其它行（以 `c`、`s`、`o` 等非数字字符开头的注释、判定行、统计行）被跳过而不是解析成子句。这一点对实际使用很关键：真实 DRAT 文件常带 `c` 注释，本仓库的命令行也会在证明后打印 `s UNSATISFIABLE` 与一行 `c decisions=…` 统计，原样回喂给 `verify` 必须仍然 VERIFIED。0.6.4 之前这里会把统计行里的数字当字面并让检查器越界崩溃，`checker_comment_wbtest.mbt` 有 3 个测试锁住现在的行为。
+
 ## RUP 的定义
 
 子句 `C` 是当前子句池的 RUP 推论（reverse unit propagation consequence），当且仅当：

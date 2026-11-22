@@ -102,6 +102,7 @@
 | `maxsat_bound_proof` | `(w : Wcnf, k : Int) -> String?` | 代价 `k` 不可达时返回 DRAT 证明，可达时返回 `None` |
 | `verify_maxsat_bound` | `(w : Wcnf, k : Int, proof : String) -> Bool` | 重建 `maxsat_encoding(w, k)` 后重放证明，判定 `k` 是否真的不可达 |
 | `maxsat_solution` | `(w : Wcnf, weight_cap : Int) -> (Array[Bool], Int)? raise` | 最优赋值与其代价；硬子句 UNSAT 返回 `None`；超权重上限抛出异常 |
+| `maxsat_model` | `(w : Wcnf, weight_cap : Int) -> (Array[Bool], Int)?` | 同上但不抛异常：超权重上限也返回 `None`，首次调用不必写 `try` |
 | `maxsat_model_cost` | `(w : Wcnf, model : Array[Bool]) -> Int` | 按 WCNF 原文复算代价，硬子句被破坏返回 `-1` |
 | `verify_maxsat_solution` | `(w : Wcnf, model : Array[Bool], claimed_cost : Int) -> Bool` | 声称的代价与复算结果是否一致 |
 
