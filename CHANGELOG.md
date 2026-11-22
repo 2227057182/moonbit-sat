@@ -2,6 +2,23 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.6.5
+
+### 新增
+
+- `maxsat-cnf <wcnf> <k>`：打印 `maxsat_encoding(w, k)` 的 DIMACS 文本。这条命令是给外部检查器用的——在这之前，最优性下界证明只能用自己的检查器复验，因为外人拿不到「公式」。
+- `tools/crosscheck.sh`：自动下载并编译 `drat-trim` 与 `lrat-check`，对鸽巢 3–9 洞、以及三个加权实例的 `opt-1` 不可达证明共 10 个案例做交叉验证。任一案例失败则退出码非 0。
+- `docs/crosscheck.md`：方法、10 个案例的结果表、`drat-trim` 的 RAT 分项统计，以及没做到的部分。
+
+### 修复
+
+- 命令行把文件路径当公式文本解析：`proof examples/pigeonhole-3-2.cnf` 会从文件名里抠出数字，凑出一个小公式并打印 `s SATISFIABLE`。对求解器来说这是最坏的失败模式——不是报错，是给出一个自信的错误答案。现在参数里没有 `p cnf` / `p wcnf` 头、同时含 `/`、`\`、`.cnf`、`.wcnf` 时直接给出错误提示与正确写法（`"$(cat file)"`），`solve` / `proof` / `verify` / `maxsat` / `maxsat-cnf` 都覆盖。
+
+### 验证
+
+- 68 个测试通过（新增 1 个：编码经 DIMACS 往返后 `num_vars` 与子句数不变，且「代价 0 不可满足 / 代价 1 可满足」与内部编码一致）。
+- 外部交叉验证 10 个案例全绿：`drat-trim` 的 `s VERIFIED` 与 `lrat-check` 的 `c VERIFIED` 同时成立。`drat-trim` 的 `-f` forward 模式对鸽巢 3/7/9 各跑一遍，结论相同。
+- `drat-trim` 统计显示全部案例 **0 RAT 引理**，即输出证明是纯 DRUP，只需 RUP 就能验，对检查器的要求降到最低。
 ## 0.6.4
 
 ### 新增

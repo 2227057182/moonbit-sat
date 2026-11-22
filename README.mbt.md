@@ -139,7 +139,7 @@ moon run cmd/main -- proof  "p cnf 6 9;1 2 0;..."         # UNSAT + DRAT 证明
 moon run cmd/main -- verify "p cnf 2 3;1 0;2 0;-1 -2 0" "-1 0;0"   # 独立校验（RUP）
 moon run cmd/main -- verify-rat "p cnf 2 3;1 0;2 0;-1 -2 0" "-1 0;0"  # 同一证明，RUP + RAT 规则
 moon run cmd/main -- maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
-moon run cmd/main -- maxsat-proof  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0   # 导出 k=0 不可达的证明
+moon run cmd/main -- maxsat-cnf "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0   # 打印「代价 ≤0」编码后的 CNF，交给外部检查器
 moon run cmd/main -- verify-maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0 "$(cat proof)"  # 重建编码后校验
 moon run cmd/main -- maxsat-verify "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"          # 上界赋值 + 下界证明一起验
 moon run cmd/main -- maxsat-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"        # 最优赋值 + 复算代价
@@ -167,7 +167,7 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 
 ## 正确性证据
 
-`moon test` 共 67 个测试，其中九类是硬证据：
+`moon test` 共 68 个测试，其中 11 类是硬证据：
 
 1. **与暴力枚举对拍**：80 轮随机 3–5 变量公式，CDCL 的 SAT/UNSAT 结论与真值表枚举逐一比对，SAT 时还验证模型确实满足每条子句。
 2. **证明自校验**：对随机 UNSAT 实例生成 DRAT 证明，再用 `verify_proof` 逐条 RUP 复算；同时有反例测试，确认非 RUP 步骤与缺失空子句都会被拒绝。
@@ -179,10 +179,11 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 8. **MaxSAT 下界证明可复算**：不可达下界能出证且校验通过、可达下界不出证、删掉空子句后被拒、同一证明挪到另一个 `k` 被拒、硬子句本身不可满足时证明仍可校验；另有 4 个真实实例在 native 上跑 `maxsat-verify` 全部 `OPTIMALITY-VERIFIED`。
 9. **MaxSAT 上界可达**：最优赋值确实付出所声称的代价、声称代价偏大或偏小都被拒、破坏硬子句的赋值被拒、零代价实例仍给出可校验赋值、硬子句本身不可满足时返回 `None`；并在顶点覆盖实例上确认「上界 + 下界」两端同时成立才判最优。
 10. **证明文本容错**：注释行（`c` / `s` / `o` 开头）被跳过而不是当成子句，把命令行打印的 `s` 与 `c …` 统计原样回喂给 `verify` 仍得到 `s VERIFIED`；只含注释的文本得到 `s PROOF-REJECTED`，不是崩溃。0.6.4 之前这里会 abort，三个测试守着。
+11. **外部检查器交叉验证**：鸽巢 3–9 洞与三个加权实例的最优性下界共 10 个案例，交给 `drat-trim` 与 `lrat-check`（与本项目无共享代码的两个 C 检查器）复算，全部 `s VERIFIED` / `c VERIFIED`，且全部是 0 RAT 引理的纯 DRUP 证明。`bash tools/crosscheck.sh` 一条命令复跑，见 [docs/crosscheck.md](docs/crosscheck.md)。
 
 ```bash
 moon check --deny-warn   # 0 warnings
-moon test                # 67 passed
+moon test                # 68 passed
 ```
 
 ## 基准
@@ -223,7 +224,7 @@ native release 下实测，证明行数在改造前后完全相同：
 
 ## 范围边界
 
-- 求解器只输出 **RUP** 步骤（CDCL 学习子句天然满足），不构造 RAT 步骤；检查器另有 RUP + RAT 模式（`verify-rat`），用于校验外部工具产出的证明。
+- 求解器只输出 **RUP** 步骤（CDCL 学习子句天然满足），不构造 RAT 步骤；检查器另有 RUP + RAT 模式（`verify-rat`），用于校验外部工具产出的证明。外部检查器复算这 10 个案例时统计到 **0 RAT 引理**，与这条边界一致。
 - MaxSAT 用权重展开 + Sinz 编码，**总软权重**有上限（默认由调用方给出，示例 512），超出会明确报错而非静默降级；这是可计算性的诚实边界，不是功能缺失的掩饰。
 - MaxSAT 最优性的上界只是「该赋值代价恰为 `opt`」，单独看不能排除更低的代价；与 `opt-1` 不可达的证明合起来才闭合最优性，所以 `maxsat-verify` 两端都要过。
 - MaxSAT 最优性证明是对**扩展后的 CNF**（含 select 变量与 Sinz 计数变量）给出的，校验方必须用库内同一个 `maxsat_encoding` 重建公式。所以准确的说法是「可复算」而不是「不看编码也能独立验」；编码器是公开源码，不存在黑箱。这一点在 `docs/proof.md` 里单独说明。

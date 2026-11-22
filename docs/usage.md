@@ -145,7 +145,7 @@ moon run cmd/main -- verify-rat "p cnf 2 3;1 0;2 0;-1 -2 0" "1 0;2 0"
 moon run cmd/main -- maxsat  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 moon run cmd/main -- core    "p cnf 2 2;1 2 0;-1 -2 0" "1 2"
 moon run cmd/main -- grid-wcnf 10 10
-moon run cmd/main -- maxsat-proof  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0
+moon run cmd/main -- maxsat-cnf  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0
 moon run cmd/main -- verify-maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0 "<DRAT 文本>"
 moon run cmd/main -- maxsat-verify "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 moon run cmd/main -- maxsat-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
@@ -154,7 +154,7 @@ moon run cmd/main -- bench
 moon run cmd/main -- bench-verify 9
 ```
 
-参数中的 `;` 等价于换行，公式直接内联，不需要临时文件（MoonBit core 目前没有文件系统模块）。
+参数中的 `;` 等价于换行，公式直接内联，不需要临时文件（MoonBit core 目前没有文件系统模块）。直接传文件路径会被挡下并提示 `"$(cat file)"` 的写法，避免把路径里的数字当成公式、静默给出错误结论。
 
 输出遵循 SAT 竞赛的惯用格式：
 
@@ -167,7 +167,7 @@ moon run cmd/main -- bench-verify 9
 | `maxsat` | `o <成本>` + `s OPTIMUM FOUND` |
 | `core` | `s UNSATISFIABLE` + `c core= <文字> 0`；或 `s SATISFIABLE` |
 | `grid-wcnf` | 把 WCNF 实例文本打印到标准输出 |
-| `maxsat-proof` | `s UNSATISFIABLE (cost <= k unreachable)` + 证明行；或 `s SATISFIABLE (cost <= k achievable)` |
+| `maxsat-cnf` | `p cnf …` 头 + 子句行：`maxsat_encoding(w, k)` 的 DIMACS，交给外部检查器用 | `s UNSATISFIABLE (cost <= k unreachable)` + 证明行；或 `s SATISFIABLE (cost <= k achievable)` |
 | `verify-maxsat` | `s VERIFIED` 或 `s PROOF-REJECTED`（重建同一编码后重放） |
 | `maxsat-verify` | `o <成本>` + `c upper= <bool> lower= <bool>` + `s OPTIMALITY-VERIFIED`（上界赋值与 `opt-1` 的下界证明都要过） |
 | `maxsat-solution` | `o <成本>` + `v <文字> 0` + `s SOLUTION-VERIFIED`；硬子句 UNSAT 时 `s UNSATISFIABLE (hard clauses)` |

@@ -119,6 +119,7 @@ moon run cmd/main -- solve "<DIMACS 文本>"
 moon run cmd/main -- proof "<DIMACS 文本>"
 moon run cmd/main -- verify "<DIMACS 文本>" "<DRAT 文本>"
 moon run cmd/main -- maxsat "<WCNF 文本>" <weight_cap>
+moon run cmd/main -- maxsat-cnf "<WCNF 文本>" <k>
 moon run cmd/main -- maxsat-proof "<WCNF 文本>" <k>
 moon run cmd/main -- verify-maxsat "<WCNF 文本>" <k> "<DRAT 文本>"
 moon run cmd/main -- maxsat-verify "<WCNF 文本>"
@@ -126,7 +127,7 @@ moon run cmd/main -- maxsat-solution "<WCNF 文本>"
 moon run cmd/main -- verify-solution "<WCNF 文本>" <cost> "<lits，如 1 -2 3 0>"
 ```
 
-命令行不接受文件 IO（MoonBit core 目前没有文件系统模块），文本参数中用 `;` 代替换行。示例：
+命令行不接受文件 IO（MoonBit core 目前没有文件系统模块），文本参数中用 `;` 代替换行。把文件路径直接当参数传会被挡下并提示 `"$(cat file)"` 的写法——早期版本会把路径里的数字当成公式，静默给出一个错误结论。示例：
 
 ```
 moon run cmd/main -- solve "p cnf 3 3;1 2 0;-1 0;-2 0"

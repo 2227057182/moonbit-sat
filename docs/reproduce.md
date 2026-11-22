@@ -1,6 +1,6 @@
 # 复现
 
-从空目录开始，六条命令就能看到本项目的全部证据。默认 Linux/macOS 的 shell，Windows 把 `$(cat 文件)` 换成 `Get-Content` 或直接把文本拼成一行。
+从空目录开始，八节命令就能看到本项目的全部证据。默认 Linux/macOS 的 shell，Windows 把 `$(cat 文件)` 换成 `Get-Content` 或直接把文本拼成一行。
 
 ## 前置
 
@@ -142,6 +142,25 @@ c verify k=9 vars=72 proof_lines=40273 sat=false result=VERIFIED
 ```
 
 9 鸽 8 洞：72 个变量、40273 行证明，进程内构造、求解、再逐条 RUP 校验，大约 6 秒。这一步绕开了命令行参数长度上限，因为 4 万行证明塞不进一个参数。
+
+## 8. 外部交叉验证
+
+前面七步用的都是本项目自己的检查器。最后一步把同一批证明交给两个与项目没有共享代码的 C 检查器：
+
+```bash
+bash tools/crosscheck.sh
+```
+
+脚本自动下载并 `gcc -O2` 编译 `drat-trim` 与 `lrat-check`，然后对 10 个案例复算（鸽巢 3–9 洞，以及 Petersen、10×10 网格、排班三个加权实例的 `opt-1` 不可达证明）：
+
+```
+case             lemmas  drat-trim    lrat-check
+php 3/2             2    s VERIFIED   c VERIFIED
+php 9/8         40273    s VERIFIED   c VERIFIED
+petersen-mwvc k=5  13    s VERIFIED   c VERIFIED
+```
+
+最后一行是 `all cases verified by drat-trim and lrat-check`，任一案例失败则退出码非 0。`drat-trim` 的分项统计显示全部案例 **0 RAT 引理**，即输出证明是纯 DRUP，只需 RUP 就能验。方法和完整表格见 [docs/crosscheck.md](crosscheck.md)。
 
 ## 参考耗时
 
