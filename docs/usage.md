@@ -129,6 +129,23 @@ fn main {
 }
 ```
 
+### 没有权重上限：核心引导
+
+`maxsat_solve` 的第二参数是总软权重上限，超过直接报错。权重大的实例改用 `maxsat_oll`：它不建基数编码，因此没有上限。
+
+```moonbit
+let w = @moonbit_sat.parse_wcnf(wcnf_text)
+let opt = @moonbit_sat.maxsat_oll(w)                     // 硬子句 UNSAT 时为 -1
+let pair = @moonbit_sat.maxsat_oll_solution(w)           // Some((赋值, 代价)) 或 None
+```
+
+算法是核心引导：每轮用当前假设求一次核心，把 core 内最便宜的一层权重记进下界，core 里的软子句饱和这一层、剩余权重交给新的松弛文字；同时用「模型违反的软子句」写成阻塞子句收紧上界，直到上下界相接。总软权重 ≤ 512 时它会自动改走编码路径，因为均匀小权重的大图上编码快得多，结果完全一致。
+
+`maxsat-oll` 子命令做同一件事，并顺带按 WCNF 原文复算模型代价：
+
+```
+moon run cmd/main -- maxsat-oll "<WCNF 文本>"
+```
 ### 变量编号约定
 
 - DIMACS 文本里的变量从 1 开始，负号表示否定。
@@ -171,6 +188,7 @@ moon run cmd/main -- bench-verify 9
 | `verify-maxsat` | `s VERIFIED` 或 `s PROOF-REJECTED`（重建同一编码后重放） |
 | `maxsat-verify` | `o <成本>` + `c upper= <bool> lower= <bool>` + `s OPTIMALITY-VERIFIED`（上界赋值与 `opt-1` 的下界证明都要过） |
 | `maxsat-solution` | `o <成本>` + `v <文字> 0` + `s SOLUTION-VERIFIED`；硬子句 UNSAT 时 `s UNSATISFIABLE (hard clauses)` |
+| `maxsat-oll` | 同 `maxsat-solution`，但走核心引导且没有总权重上限 |
 | `verify-solution` | `s SOLUTION-VERIFIED` 或 `s SOLUTION-REJECTED`（按 WCNF 重算给定的代价与赋值） |
 | `bench` | 五行 `c bench vars=… clauses=… result=… decisions=… propagations=… conflicts=… minimised=…` |
 | `bench-verify <k>` | `c verify k=… vars=… proof_lines=… sat=… result=VERIFIED` 或 `… REJECTED` |

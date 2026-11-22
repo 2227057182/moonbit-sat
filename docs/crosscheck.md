@@ -83,6 +83,6 @@ c error: the formula argument looks like a file path; formulas are passed inline
 
 ## 没有做到的
 
-- 完整 OLL / WPM1 仍未实现，所以外部检查覆盖的是本项目这套「上下界 + 编码」路线的最优性证明，不是 MaxSAT 评测里任意 WCNF 的最优性。
+- 核心引导路径（`maxsat_oll`）不导出下界证明，所以外部检查覆盖的是编码路径的「上下界」证明，不是核心引导每一轮 core 的可移植证明。
 - 没有和 SAT Competition 的官方证明集对比：那些实例的证明由别的求解器产生，用它们的证明喂本项目检查器属于另一件事，见 [proof.md](proof.md) 里的篡改实验。
 - k=10 的鸽巢能生成证明，但本项目自己的检查器要 350 秒（每个文字挂数千条监听的结构性问题，见 [roadmap.md](roadmap.md)）；`drat-trim` 本身对这种规模没有压力，所以这里的瓶颈是我们，不是外部工具。

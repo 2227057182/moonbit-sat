@@ -131,6 +131,13 @@ let opt = @moonbit_sat.maxsat_solve(w, 512)   // 总软权重上限 512
 println(opt)                                   // 1
 ```
 
+总软权重超过 512 时 `maxsat_solve` 会拒绝；`maxsat_oll` 没有这个上限：它按 unsat core 驱动下界，再用每个模型违反的软子句收紧上界，两界相接才收尾。
+
+```moonbit
+let opt = @moonbit_sat.maxsat_oll(w)                              // 无总权重上限
+let best = @moonbit_sat.maxsat_oll_solution(w)                    // (赋值, 代价)?
+```
+
 ## CLI
 
 ```bash
@@ -144,6 +151,7 @@ moon run cmd/main -- maxsat-proof  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0   # 
 moon run cmd/main -- verify-maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0 "$(cat proof)"  # 重建编码后校验
 moon run cmd/main -- maxsat-verify "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"          # 上界赋值 + 下界证明一起验
 moon run cmd/main -- maxsat-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"        # 最优赋值 + 复算代价
+moon run cmd/main -- maxsat-oll "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"             # 核心引导，总软权重无上限
 moon run cmd/main -- verify-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 1 "v 1 -2 0"   # 只核对导出的赋值
 ```
 
