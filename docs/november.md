@@ -20,14 +20,14 @@
 - 测试：37 → 68，wasm / js / native 同结果，`moon check --deny-warn` 零告警。
 - 命令：8 → 15 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`verify-solution`）。
 - 文档：`docs/` 共 11 篇（新增 `benchmarks.md`、`proof.md`、`november.md`、`reproduce.md`、`crosscheck.md`、`申报书.md`）。
-- 提交：十一月一日至二十二日截至 0.6.6 发布共 73 次，包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
-- 发布：Mooncakes 0.5.0 → 0.6.5，每次 `build=success`，0.6.4 与 0.6.5 各有 tag 与 GitHub Release。
+- 提交：十一月一日至二十二日共 73 次（截至 0.6.6 发布），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
+- 发布：Mooncakes 0.5.0 → 0.6.6，每次 `build=success`，0.6.4、0.6.5、0.6.6 各有 tag 与 GitHub Release。
 
 ## 没有做到的
 
 - 完整 OLL/WPM1 core-guided MaxSAT：只有 core 提取与下界收紧，权重拆解未实现。
 - 没有与 SAT Competition 的官方证明集对拍：那些证明由别的求解器产生，属于「用本项目检查器读外部证明」，与「外部工具验本项目证明」是两件事。
 - 检查器 k=10（295345 行）仍需约 350s，瓶颈是每个文字挂的监听条数。
-- 最大实例 100 变量，未与工业求解器同数据集比较。
+- 最大实例 400 变量（20×20 网格；鸽巢 k=10 是 90 变量、295345 行证明），未与工业求解器同数据集比较。
 
 这些边界在 `docs/roadmap.md` 与申报书的「范围边界」里都写着，没有包装成已完成。
