@@ -18,6 +18,8 @@
 | 预处理 | `Formula::simplify` 去掉子句内重复文字、删除重言子句，并统计被删条数 |
 | 四后端 | 不依赖 FFI、不依赖外部求解器，`preferred_target = "wasm"` 下与 native 同结果 |
 
+全部证据（判定 / 证明 / 校验 / core / 加权 / 最优性两端 / 压力）的复现步骤与预期输出见 [docs/reproduce.md](docs/reproduce.md)。
+
 ## 安装
 
 ```bash
