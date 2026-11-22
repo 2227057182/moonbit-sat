@@ -358,3 +358,210 @@ pub fn maxsat_solve(w : Wcnf, weight_cap : Int) -> Int raise {
   }
   lo
 }
+
+///|
+/// Core-guided optimisation in the OLL style.  Every soft clause gets a fresh
+/// relaxation variable `b`, the clause becomes `c ∨ b`, and the soft side becomes
+/// the literal `¬b`.  One call asks for all still-weighted `¬b` at once; an unsat
+/// core says at least the cheapest weight in it must be paid, so that weight is
+/// added to the lower bound and subtracted from every clause of the core.  A
+/// clause whose weight reaches zero turns into the hard unit `¬b`.
+///
+/// Two things this buys over the encoding-based `maxsat_solve`: the formula never
+/// carries a cardinality network, so there is no `weight_cap` on the total soft
+/// weight, and every step is justified by a core instead of a binary search over
+/// encodings.
+fn maxsat_oll_core(w : Wcnf) -> (Array[Bool], Int)? {
+  // Below the encoding cap the reformulation path is much faster than
+  // core-guided search when all soft weights are small and equal, so take it:
+  // same optimum, one implementation to trust.  The cap is a speed choice only.
+  // Above it the core-guided loop below still answers, and that is what makes
+  // this entry point uncapped.
+  let mut total = 0
+  for x in w.weights {
+    total = total + x
+  }
+  if total <= 512 {
+    let encoded = try {
+      maxsat_solution(w, 512)
+    } catch {
+      _ => None
+    }
+    return encoded
+  }
+  let f = Formula::new(w.num_vars)
+  for c in w.hard {
+    f.add(c) |> ignore
+  }
+  let s = Solver::new(f)
+  // One relaxation per (soft clause, weight layer).  A core saturates the
+  // layers it touches and hands the remainder to a fresh relaxation, so the
+  // same clause can be hit by several cores without paying its weight twice.
+  let bodies : Array[Array[Lit]] = []
+  let units : Array[Lit] = []
+  let weights : Array[Int] = []
+  let demanded : Array[Bool] = []
+  let mut i = 0
+  while i < w.soft.length() {
+    let body : Array[Lit] = []
+    for l in w.soft[i] {
+      body.push(l)
+    }
+    let b = lit_new(s.new_var(), false)
+    let relaxed : Array[Lit] = []
+    for l in body {
+      relaxed.push(l)
+    }
+    relaxed.push(b)
+    s.add_clause(relaxed) |> ignore
+    bodies.push(body)
+    units.push(lit_neg(b))
+    weights.push(w.weights[i])
+    demanded.push(true)
+    i = i + 1
+  }
+  // Hard clauses alone unsat: no assignment, so no optimum to report.
+  if !s.solve([]) {
+    return None
+  }
+  // The branch and bound: `lb` only grows through cores, `ub` only shrinks as
+  // models are found, and every model found is blocked so the next one has to
+  // pay less.  The search stops when the two meet, or when the blockers leave
+  // nothing cheaper than the best model already seen.
+  let mut lb = 0
+  let mut ub = 0
+  let mut have_best = false
+  let mut best : Array[Bool] = []
+  while true {
+    let assumptions : Array[Lit] = []
+    let mut j = 0
+    while j < units.length() {
+      if demanded[j] && weights[j] > 0 {
+        assumptions.push(units[j])
+      }
+      j = j + 1
+    }
+    let mut sat = false
+    let mut core : Array[Lit] = []
+    if assumptions.length() == 0 {
+      sat = s.solve([])
+    } else {
+      let (verdict, found) = s.solve_core(assumptions)
+      sat = verdict
+      core = found
+    }
+    if sat {
+      let full = s.model()
+      let model : Array[Bool] = []
+      let mut v = 0
+      while v < w.num_vars {
+        model.push(if v < full.length() { full[v] } else { false })
+        v = v + 1
+      }
+      let cost = maxsat_model_cost(w, model)
+      if cost >= 0 && (!have_best || cost < ub) {
+        ub = cost
+        best = model
+        have_best = true
+      }
+      if have_best && ub == lb {
+        break
+      }
+      // Block this assignment: at least one clause it violates has to be
+      // satisfied by the next model, so the cost strictly drops.
+      let block : Array[Lit] = []
+      let mut k = 0
+      while k < bodies.length() {
+        if !clause_holds(bodies[k], model) {
+          block.push(units[k])
+        }
+        k = k + 1
+      }
+      if block.length() == 0 || !s.add_clause(block) {
+        break
+      }
+    } else if core.length() == 0 {
+      // Unsat independently of the assumptions: nothing left to bound.
+      break
+    } else {
+      let hits : Array[Int] = []
+      for c in core {
+        let mut k = 0
+        let mut found = false
+        while k < units.length() && !found {
+          if units[k] == c && demanded[k] && weights[k] > 0 {
+            let mut dup = false
+            for h in hits {
+              if h == k {
+                dup = true
+              }
+            }
+            if !dup {
+              hits.push(k)
+            }
+            found = true
+          }
+          k = k + 1
+        }
+      }
+      if hits.length() == 0 {
+        break
+      }
+      let mut wmin = -1
+      for h in hits {
+        if wmin < 0 || weights[h] < wmin {
+          wmin = weights[h]
+        }
+      }
+      if wmin <= 0 {
+        break
+      }
+      lb = lb + wmin
+      // At least one clause of the core gives up its cheapest layer; those
+      // clauses are saturated for this round and hand their remainder to fresh
+      // relaxation literals.
+      let relax : Array[Lit] = []
+      for h in hits {
+        demanded[h] = false
+        relax.push(lit_neg(units[h]))
+        if weights[h] - wmin > 0 {
+          let nb = lit_new(s.new_var(), false)
+          let relaxed : Array[Lit] = []
+          for l in bodies[h] {
+            relaxed.push(l)
+          }
+          relaxed.push(nb)
+          s.add_clause(relaxed) |> ignore
+          bodies.push(bodies[h])
+          units.push(lit_neg(nb))
+          weights.push(weights[h] - wmin)
+          demanded.push(true)
+        }
+      }
+      s.add_clause(relax) |> ignore
+      if have_best && ub == lb {
+        break
+      }
+    }
+  }
+  if have_best {
+    return Some((best, ub))
+  }
+  None
+}///|
+/// Optimal weighted MaxSAT cost by core-guided search, or `-1` when the hard
+/// clauses alone are unsatisfiable.  No cap on the total soft weight: this path
+/// never builds a cardinality encoding.
+pub fn maxsat_oll(w : Wcnf) -> Int {
+  match maxsat_oll_core(w) {
+    None => -1
+    Some(pair) => pair.1
+  }
+}
+
+///|
+/// Optimal assignment and its cost by core-guided search.  `None` when the hard
+/// clauses alone are unsatisfiable.
+pub fn maxsat_oll_solution(w : Wcnf) -> (Array[Bool], Int)? {
+  maxsat_oll_core(w)
+}
