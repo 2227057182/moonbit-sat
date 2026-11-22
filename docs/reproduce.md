@@ -151,7 +151,7 @@ c verify k=9 vars=72 proof_lines=40273 sat=false result=VERIFIED
 bash tools/crosscheck.sh
 ```
 
-脚本自动下载并 `gcc -O2` 编译 `drat-trim` 与 `lrat-check`，然后对 10 个案例复算（鸽巢 3–9 洞，以及 Petersen、10×10 网格、排班三个加权实例的 `opt-1` 不可达证明）：
+脚本自动下载并 `gcc -O2` 编译 `drat-trim` 与 `lrat-check`，然后对 10 个案例复算（鸽巢 3–9 洞，以及 Petersen、10×10 网格、排班三个加权实例的 `opt-1` 不可达证明）；`BIG=1` 再追加鸽巢 10/9（295345 行）与 20×20 网格下界，共 12 个案例：
 
 ```
 case             lemmas  drat-trim    lrat-check
