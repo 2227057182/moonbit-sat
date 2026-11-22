@@ -179,7 +179,7 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 8. **MaxSAT 下界证明可复算**：不可达下界能出证且校验通过、可达下界不出证、删掉空子句后被拒、同一证明挪到另一个 `k` 被拒、硬子句本身不可满足时证明仍可校验；另有 4 个真实实例在 native 上跑 `maxsat-verify` 全部 `OPTIMALITY-VERIFIED`。
 9. **MaxSAT 上界可达**：最优赋值确实付出所声称的代价、声称代价偏大或偏小都被拒、破坏硬子句的赋值被拒、零代价实例仍给出可校验赋值、硬子句本身不可满足时返回 `None`；并在顶点覆盖实例上确认「上界 + 下界」两端同时成立才判最优。
 10. **证明文本容错**：注释行（`c` / `s` / `o` 开头）被跳过而不是当成子句，把命令行打印的 `s` 与 `c …` 统计原样回喂给 `verify` 仍得到 `s VERIFIED`；只含注释的文本得到 `s PROOF-REJECTED`，不是崩溃。0.6.4 之前这里会 abort，三个测试守着。
-11. **外部检查器交叉验证**：鸽巢 3–9 洞与三个加权实例的最优性下界共 10 个案例，交给 `drat-trim` 与 `lrat-check`（与本项目无共享代码的两个 C 检查器）复算，全部 `s VERIFIED` / `c VERIFIED`，且全部是 0 RAT 引理的纯 DRUP 证明。`bash tools/crosscheck.sh` 一条命令复跑，见 [docs/crosscheck.md](docs/crosscheck.md)。
+11. **外部检查器交叉验证**：鸽巢 3–9 洞与三个加权实例的最优性下界共 10 个案例，交给 `drat-trim` 与 `lrat-check`（与本项目无共享代码的两个 C 检查器）复算，全部 `s VERIFIED` / `c VERIFIED`，且全部是 0 RAT 引理的纯 DRUP 证明。`BIG=1 bash tools/crosscheck.sh` 再追加鸽巢 10/9（295345 行，`drat-trim` 约 17s）与 20×20 网格下界（8622 行），12 个案例同样全绿。见 [docs/crosscheck.md](docs/crosscheck.md)。
 
 ```bash
 moon check --deny-warn   # 0 warnings
@@ -237,6 +237,10 @@ native release 下实测，证明行数在改造前后完全相同：
 - [使用说明](docs/usage.md)：安装、库调用、命令行、输出格式与常见问题
 - [API 参考](docs/api.md)：公开接口逐项说明
 - [实现来源与合规](docs/origin.md)：算法出处、无第三方代码、许可证与校验独立性
+- [复现步骤](docs/reproduce.md)：从 clone 开始的八节证据与预期输出
+- [外部交叉验证](docs/crosscheck.md)：把证明交给 `drat-trim` 与 `lrat-check` 复算的结果
+- [本期新增](docs/november.md)：0.5.0 → 0.6.6 的实质变化与没做到的部分
+- [基准与对比](docs/benchmarks.md)：顶点覆盖实例、已知最优的依据与实测耗时
 - [路线图](docs/roadmap.md)：已完成与计划项
 - [变更记录](CHANGELOG.md)
 - [贡献指南](CONTRIBUTING.md)
