@@ -315,6 +315,17 @@ pub fn maxsat_solution(w : Wcnf, weight_cap : Int) -> (Array[Bool], Int)? raise 
 }
 
 ///|
+/// Same as `maxsat_solution`, but never raises: an exceeded weight cap is
+/// reported as `None` instead of an error, so a first call needs no `try`.
+pub fn maxsat_model(w : Wcnf, weight_cap : Int) -> (Array[Bool], Int)? {
+  try {
+    maxsat_solution(w, weight_cap)
+  } catch {
+    _ => None
+  }
+}
+
+///|
 /// Optimal weighted MaxSAT cost, or `-1` when the hard clauses alone are
 /// unsatisfiable.  Weight totalling is capped so the cardinality encoding
 /// stays small; the cap is reported rather than silently ignored.

@@ -39,6 +39,28 @@ test "a zero-cost instance still yields a checkable assignment" {
 }
 
 ///|
+test "the non-raising entry point returns the same assignment" {
+  let w = parse_wcnf("p wcnf 2 3 10\n10 1 2 0\n1 -1 0\n1 -2 0\n")
+  let (model, cost) = maxsat_model(w, 64).unwrap()
+  assert_true(cost == 1)
+  assert_true(verify_maxsat_solution(w, model, cost))
+}
+
+///|
+test "the non-raising entry point reports an exceeded cap as None" {
+  // 顶值 1000，软权重 100（小于顶值才算软子句），上限 4。
+  let w = parse_wcnf("p wcnf 1 2 1000\n1000 1 0\n100 -1 0\n")
+  assert_true(maxsat_model(w, 4) is None)
+  let mut raised = false
+  try {
+    ignore(maxsat_solution(w, 4))
+  } catch {
+    _ => raised = true
+  }
+  assert_true(raised)
+}
+
+///|
 test "unsatisfiable hard clauses produce no assignment" {
   let w = parse_wcnf("p wcnf 1 2 10\n10 1 0\n10 -1 0\n")
   assert_true(maxsat_solution(w, 64) is None)

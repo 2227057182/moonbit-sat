@@ -20,6 +20,8 @@ pub fn maxsat_core_bound(Wcnf) -> Int32
 
 pub fn maxsat_encoding(Wcnf, Int32) -> Formula
 
+pub fn maxsat_model(Wcnf, Int32) -> (Array[Bool], Int32)?
+
 pub fn maxsat_model_cost(Wcnf, Array[Bool]) -> Int32
 
 pub fn maxsat_solution(Wcnf, Int32) -> (Array[Bool], Int32)? raise
