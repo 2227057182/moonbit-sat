@@ -20,8 +20,8 @@
 - 测试：37 → 68，wasm / js / native 同结果，`moon check --deny-warn` 零告警。
 - 命令：8 → 15 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`verify-solution`）。
 - 文档：`docs/` 共 11 篇（新增 `benchmarks.md`、`proof.md`、`november.md`、`reproduce.md`、`crosscheck.md`、`申报书.md`）。
-- 提交：十一月一日至二十二日共 77 次，其中 0.6.6 发布前 73 次、其后 4 次是文档措辞修订，包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
-- 发布：Mooncakes 0.5.0 → 0.6.6，每次 `build=success`，0.6.4、0.6.5、0.6.6 各有 tag 与 GitHub Release。
+- 提交：十一月一日至二十二日截至 0.6.7 发布共 78 次（0.6.6 发布前 73 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
+- 发布：Mooncakes 0.5.0 → 0.6.7，每次 `build=success`，0.6.4 起每个版本都有 tag 与 GitHub Release。
 
 ## 没有做到的
 
