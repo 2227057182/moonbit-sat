@@ -13,7 +13,7 @@
 | 真实实例与已知最优 | 0.6.0–0.6.1 | 只有随机对拍 | Petersen 与 4×5 网格的 MWVC 实例、`grid-wcnf` 生成器、`docs/benchmarks.md` 写明已知最优的独立依据 | `examples/`、`docs/benchmarks.md` |
 | 证明交给外部检查 | 0.6.5 | 只能用自己的检查器复算，外人拿不到「公式」 | `maxsat-cnf` 导出编码后的 CNF；`tools/crosscheck.sh` 用 `drat-trim` 与 `lrat-check` 复算 10 个案例，全部 `s VERIFIED` / `c VERIFIED`，且全是 0 RAT 引理的纯 DRUP | `docs/crosscheck.md` |
 | 更大实例 | 0.6.6 | 最大 100 变量 | 20×20 网格（400 变量）`o 200`，König 定理独立佐证；鸽巢 k=10 的 295345 行证明经 `drat-trim` 与 `lrat-check` 复算 | `docs/benchmarks.md`「规模上限」 |
-| 检查器吞吐 | 0.5.0 | 逐条全池扫描，k=9 需 32.56s | 两文字监听增量传播，k=9 降到 5.96s（5.5×） | `docs/proof.md`、`CHANGELOG.md` 0.5.0 |
+| 检查器吞吐 | 0.5.0 | 逐条全池扫描，k=9 校验 32.56s | 两文字监听（5.96s）；0.6.7 摊平子句池后 k=9 2.5s、k=10 196s→127s | `docs/proof.md`、`CHANGELOG.md` |
 
 ## 量化
 
@@ -27,7 +27,7 @@
 
 - 完整 OLL/WPM1 core-guided MaxSAT：只有 core 提取与下界收紧，权重拆解未实现。
 - 没有与 SAT Competition 的官方证明集对拍：那些证明由别的求解器产生，属于「用本项目检查器读外部证明」，与「外部工具验本项目证明」是两件事。
-- 检查器 k=10（295345 行）仍需约 350s，瓶颈是每个文字挂的监听条数。
+- 检查器 k=10（295345 行）校验 127s，仍比 `drat-trim` 慢约 7 倍，瓶颈在传播调度。
 - 最大实例 400 变量（20×20 网格；鸽巢 k=10 是 90 变量、295345 行证明），未与工业求解器同数据集比较。
 
 这些边界在 `docs/roadmap.md` 与申报书的「范围边界」里都写着，没有包装成已完成。

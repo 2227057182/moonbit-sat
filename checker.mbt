@@ -63,7 +63,7 @@ fn scan_drat_ints(line : StringView) -> Array[Int] {
 
 ///|
 fn lit_index(l : Lit) -> Int {
-  2 * lit_var(l) + (if lit_is_neg(l) { 1 } else { 0 })
+  2 * (l / 2) + (if l % 2 == 1 { 1 } else { 0 })
 }
 
 ///|
@@ -71,9 +71,17 @@ fn lit_index(l : Lit) -> Int {
 /// independently of `solver.mbt` on purpose: the checker has to re-derive each
 /// step with code the solver does not share, so a solver bug cannot hide a bad
 /// proof.  Watchers survive between checks; only the trail is rolled back.
+///
+/// Storage is flat on purpose.  A pool of ~300k clauses is visited once per
+/// watched literal during propagation, and an array-of-arrays turns each visit
+/// into a pointer chase; keeping every literal in one `Array[Lit]` and the
+/// clause boundaries in `begin`/`len` keeps the hot loop on contiguous memory.
+/// `len[ci] == 0` means the clause was deleted, so no separate `alive` array is
+/// needed.
 priv struct CheckDb {
-  clauses : Array[Array[Lit]]
-  alive : Array[Bool]
+  lits : Array[Lit]
+  begin : Array[Int]
+  len : Array[Int]
   watches : Array[Array[Int]]
   values : Array[Int]
   trail : Array[Lit]
@@ -110,16 +118,17 @@ fn CheckDb::new(num_vars : Int) -> CheckDb {
     b = b + 1
   }
   {
+    begin : [],
     buckets : buckets,
-    clauses : [],
-    alive : [],
+    inconsistent : false,
+    len : [],
+    lits : [],
+    num_vars : num_vars,
     watches : watches,
     values : Array::make(num_vars, -1),
     trail : [],
     qhead : 0,
-    num_vars : num_vars,
     base_len : 0,
-    inconsistent : false,
   }
 }
 
@@ -134,15 +143,18 @@ fn CheckDb::ensure(self : CheckDb, v : Int) -> Unit {
 }
 
 ///|
+/// Value of a literal under the current trail: 1 true, 0 false, -1 unassigned.
+/// Kept as plain arithmetic rather than going through `lit_is_neg` because this
+/// is the innermost call of propagation.
 fn CheckDb::value(self : CheckDb, l : Lit) -> Int {
-  let v = lit_var(l)
+  let v = l / 2
   if v >= self.values.length() {
     return -1
   }
   let a = self.values[v]
   if a < 0 {
     -1
-  } else if lit_is_neg(l) {
+  } else if l % 2 == 1 {
     1 - a
   } else {
     a
@@ -153,8 +165,8 @@ fn CheckDb::value(self : CheckDb, l : Lit) -> Int {
 /// Assign `l` true.  Returns false when that contradicts an existing value,
 /// which is itself a conflict for the caller.
 fn CheckDb::assign(self : CheckDb, l : Lit) -> Bool {
-  let v = lit_var(l)
-  let val = if lit_is_neg(l) { 0 } else { 1 }
+  let v = l / 2
+  let val = if l % 2 == 1 { 0 } else { 1 }
   let cur = self.values[v]
   if cur >= 0 {
     return cur == val
@@ -174,7 +186,7 @@ fn CheckDb::reset(self : CheckDb) -> Unit {
   let mut i = self.trail.length()
   while i > self.base_len {
     let l = self.trail[i - 1]
-    self.values[lit_var(l)] = -1
+    self.values[l / 2] = -1
     self.trail.pop() |> ignore
     i = i - 1
   }
@@ -183,21 +195,24 @@ fn CheckDb::reset(self : CheckDb) -> Unit {
 
 ///|
 fn CheckDb::attach(self : CheckDb, ci : Int) -> Unit {
-  let c = self.clauses[ci]
-  if c.length() >= 2 {
-    self.watches[lit_index(c[0])].push(ci)
-    self.watches[lit_index(c[1])].push(ci)
+  let base = self.begin[ci]
+  if self.len[ci] >= 2 {
+    self.watches[lit_index(self.lits[base])].push(ci)
+    self.watches[lit_index(self.lits[base + 1])].push(ci)
   }
 }
 
 ///|
 fn CheckDb::add(self : CheckDb, lits : Array[Lit]) -> Unit {
   for l in lits {
-    self.ensure(lit_var(l))
+    self.ensure(l / 2)
   }
-  let ci = self.clauses.length()
-  self.clauses.push(lits)
-  self.alive.push(true)
+  let ci = self.begin.length()
+  self.begin.push(self.lits.length())
+  self.len.push(lits.length())
+  for l in lits {
+    self.lits.push(l)
+  }
   self.buckets[clause_hash(lits)].push(ci)
   self.attach(ci)
   if lits.length() == 1 {
@@ -210,15 +225,64 @@ fn CheckDb::add(self : CheckDb, lits : Array[Lit]) -> Unit {
 }
 
 ///|
+/// Whether pool clause `ci` holds `l`.  Deleted clauses hold nothing.
+fn CheckDb::flat_contains(self : CheckDb, ci : Int, l : Lit) -> Bool {
+  if self.len[ci] == 0 {
+    return false
+  }
+  let base = self.begin[ci]
+  let stop = base + self.len[ci]
+  let mut i = base
+  while i < stop {
+    if self.lits[i] == l {
+      return true
+    }
+    i = i + 1
+  }
+  false
+}
+
+///|
+/// Copy a pool clause out of the flat store.  Only the RAT fallback path needs
+/// this; it is never touched by the RUP hot loop.
+fn CheckDb::to_array(self : CheckDb, ci : Int) -> Array[Lit] {
+  let out : Array[Lit] = []
+  let base = self.begin[ci]
+  let stop = base + self.len[ci]
+  let mut i = base
+  while i < stop {
+    out.push(self.lits[i])
+    i = i + 1
+  }
+  out
+}
+
+///|
+/// Whether the pool clause at `ci` is the multiset given by `lits`.
+fn CheckDb::flat_same(self : CheckDb, ci : Int, lits : Array[Lit]) -> Bool {
+  if self.len[ci] != lits.length() {
+    return false
+  }
+  for l in lits {
+    if !self.flat_contains(ci, l) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 /// Mark the pool clause matching a deletion step as dead.  Only the hash bucket
-/// is visited, not the whole pool.
+/// is visited, not the whole pool.  A dead clause is dropped from the watcher
+/// list the next time propagation walks over it (`len == 0` entries are skipped
+/// without being written back).
 fn CheckDb::mark_dead(self : CheckDb, lits : Array[Lit]) -> Unit {
   let b = self.buckets[clause_hash(lits)]
   let mut i = 0
   while i < b.length() {
     let ci = b[i]
-    if self.alive[ci] && same_clause(self.clauses[ci], lits) {
-      self.alive[ci] = false
+    if self.len[ci] != 0 && self.flat_same(ci, lits) {
+      self.len[ci] = 0
       return
     }
     i = i + 1
@@ -233,28 +297,27 @@ fn CheckDb::propagate(self : CheckDb) -> Bool {
     let p = self.trail[self.qhead]
     self.qhead = self.qhead + 1
     let target = lit_neg(p)
-    let falsified = lit_index(target)
-    let ws = self.watches[falsified]
+    let ws = self.watches[lit_index(target)]
     let mut w = 0
     let mut i = 0
     while i < ws.length() && !conflict {
       let ci = ws[i]
       i = i + 1
-      if !self.alive[ci] {
+      if self.len[ci] == 0 {
         continue
       }
-      let c = self.clauses[ci]
-      if c[0] == target {
-        let tmp = c[0]
-        c[0] = c[1]
-        c[1] = tmp
+      let base = self.begin[ci]
+      if self.lits[base] == target {
+        let a0 = self.lits[base]
+        self.lits[base] = self.lits[base + 1]
+        self.lits[base + 1] = a0
       }
-      if c[1] != target {
+      if self.lits[base + 1] != target {
         ws[w] = ci
         w = w + 1
         continue
       }
-      let first = c[0]
+      let first = self.lits[base]
       if self.value(first) == 1 {
         ws[w] = ci
         w = w + 1
@@ -262,12 +325,14 @@ fn CheckDb::propagate(self : CheckDb) -> Bool {
       }
       let mut moved = false
       let mut k = 2
-      while k < c.length() && !moved {
-        if self.value(c[k]) != 0 {
-          let tmp = c[1]
-          c[1] = c[k]
-          c[k] = tmp
-          self.watches[lit_index(c[1])].push(ci)
+      let clen = self.len[ci]
+      while k < clen && !moved {
+        let lk = self.lits[base + k]
+        if self.value(lk) != 0 {
+          let tmp = self.lits[base + 1]
+          self.lits[base + 1] = lk
+          self.lits[base + k] = tmp
+          self.watches[lit_index(lk)].push(ci)
           moved = true
         }
         k = k + 1
@@ -317,26 +382,6 @@ fn rup_check(db : CheckDb, lits : Array[Lit]) -> Bool {
   let no_conflict = db.propagate()
   db.reset()
   !no_conflict
-}
-
-///|
-fn same_clause(a : Array[Lit], b : Array[Lit]) -> Bool {
-  if a.length() != b.length() {
-    return false
-  }
-  for l in a {
-    let mut found = false
-    for m in b {
-      if l == m {
-        found = true
-        break
-      }
-    }
-    if !found {
-      return false
-    }
-  }
-  true
 }
 
 ///|
@@ -392,9 +437,9 @@ fn rat_check(db : CheckDb, lits : Array[Lit]) -> Bool {
   let pivot = lits[0]
   let neg = lit_neg(pivot)
   let mut i = 0
-  while i < db.clauses.length() {
-    if db.alive[i] && clause_contains(db.clauses[i], neg) {
-      let (res, taut) = make_resolvent(lits, db.clauses[i], pivot)
+  while i < db.len.length() {
+    if db.len[i] != 0 && db.flat_contains(i, neg) {
+      let (res, taut) = make_resolvent(lits, db.to_array(i), pivot)
       if !taut && !rup_check(db, res) {
         return false
       }
