@@ -12,6 +12,25 @@ fn decode(text : String) -> String {
 }
 
 ///|
+/// The CLI takes formulas inline.  A pasted file path would otherwise be
+/// scanned for integers and turned into some unrelated small formula, which
+/// then gets reported as `s SATISFIABLE` — for a solver that is the worst
+/// possible failure mode.  MoonBit core has no file system module, so this
+/// rejects the argument instead of silently mis-reading it.
+fn reject_path_arg(text : String, what : String) -> Bool {
+  if text.contains("p cnf") || text.contains("p wcnf") {
+    return false
+  }
+  if text.contains("/") || text.contains("\\") || text.contains(".cnf") || text.contains(".wcnf") {
+    println(
+      "c error: the \{what} argument looks like a file path; formulas are passed inline, so expand it first with \"$(cat file)\"",
+    )
+    return true
+  }
+  false
+}
+
+///|
 /// Deterministic random 3-SAT near the satisfiability threshold.  Used by the
 /// `bench` command so the search volume can be reproduced anywhere without
 /// shipping instance files.
@@ -250,6 +269,7 @@ fn usage() -> Unit {
   println("  moonbit-sat verify <dimacs> <proof>    independently check a DRAT proof (RUP only)")
   println("  moonbit-sat verify-rat <dimacs> <proof> check a DRAT proof with the RUP + RAT rule set")
   println("  moonbit-sat maxsat <wcnf>              optimal weighted MaxSAT cost")
+  println("  moonbit-sat maxsat-cnf <wcnf> <k>     the CNF that decides cost <= k, for external checkers")
   println("  moonbit-sat maxsat-proof <wcnf> <k>   DRAT proof that cost <= k is unreachable")
   println("  moonbit-sat verify-maxsat <wcnf> <k> <proof>  re-check a lower-bound proof")
   println("  moonbit-sat maxsat-verify <wcnf>      check both halves of the optimum: a matching assignment and the refutation of opt-1")
@@ -278,6 +298,9 @@ fn main {
   if cmd == "solve" || cmd == "proof" {
     let text = decode(args[2])
     try {
+      if reject_path_arg(text, "formula") {
+        return
+      }
       let f = @lib.parse_dimacs(text)
       let s = @lib.Solver::new(f)
       let p = s.enable_proof()
@@ -310,7 +333,11 @@ fn main {
       return
     }
     try {
-      let f = @lib.parse_dimacs(decode(args[2]))
+      let text = decode(args[2])
+      if reject_path_arg(text, "formula") {
+        return
+      }
+      let f = @lib.parse_dimacs(text)
       let proof = decode(args[3])
       let ok = if cmd == "verify-rat" {
         @lib.verify_proof_rat(f, proof)
@@ -323,7 +350,11 @@ fn main {
     }
   } else if cmd == "maxsat" {
     try {
-      let w = @lib.parse_wcnf(decode(args[2]))
+      let wcnf_text = decode(args[2])
+      if reject_path_arg(wcnf_text, "wcnf") {
+        return
+      }
+      let w = @lib.parse_wcnf(wcnf_text)
       let opt = @lib.maxsat_solve(w, 512)
       if opt < 0 {
         println("s UNSATISFIABLE (hard clauses)")
@@ -334,6 +365,18 @@ fn main {
     } catch {
       e => println("c error: \{e}")
     }
+  } else if cmd == "maxsat-cnf" {
+    if args.length() < 4 {
+      usage()
+      return
+    }
+    let wcnf_text = decode(args[2])
+    if reject_path_arg(wcnf_text, "wcnf") {
+      return
+    }
+    let w = @lib.parse_wcnf(wcnf_text)
+    let k = parse_uint(args[3])
+    println(@lib.to_dimacs(@lib.maxsat_encoding(w, k)))
   } else if cmd == "maxsat-proof" {
     if args.length() < 4 {
       usage()

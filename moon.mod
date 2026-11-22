@@ -1,6 +1,6 @@
 name = "2227057182/moonbit-sat"
 
-version = "0.6.4"
+version = "0.6.5"
 
 readme = "README.mbt.md"
 
