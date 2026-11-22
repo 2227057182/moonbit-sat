@@ -2,6 +2,15 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.6.9
+
+### 文档
+
+- 包内 README 与 `docs/` 对齐 0.6.8 的实际内容：测试数 68 → 77（硬证据 11 → 12 类，新增核心引导一条）、子命令 15 → 16（补 `maxsat-oll`）、「范围边界」里的 MaxSAT 上限改成「`maxsat_solve` 有上限、`maxsat_oll` 无上限，≤512 自动走编码」。
+- `docs/november.md` 的发布行与提交数、`docs/reproduce.md` 与 `docs/crosscheck.md` 的案例数（10 → 12）同步；`docs/crosscheck.md` 里 k=10 的检查器耗时补上 0.6.7 之后的 127 秒。
+
+没有代码、API 或 CLI 行为变更，0.6.8 的能力与边界一字未改。
+
 ## 0.6.8
 
 ### 新增
@@ -17,6 +26,7 @@
 - 核心引导不导出下界证明：每轮 core 依赖求解器的假设接口，没有可移植的证明文本。外部复核最优性仍走 `maxsat-cnf` / `maxsat-proof` 的编码路径。
 
 测试 68 → 77，`moon check --deny-warn` 零告警，12 个外部案例的结论不变。
+
 ## 0.6.7
 
 ### 改动
