@@ -14,7 +14,14 @@ pub fn parse_drat(text : String) -> Array[DratStep] {
     if line.length() == 0 {
       continue
     }
-    let is_delete = line[0] == 'd'
+    // 注释与统计行（`c`、`s`、`o` 开头）不是证明步骤。真实 DRAT 文件带 `c`
+    // 注释，本仓库的命令行也会在证明后打印 `s` 与一行 `c …` 统计；把它们
+    // 当子句解析，那些数字就变成了字面，检查器会与公式对不上。
+    let head = line[0]
+    if !(head == 'd' || head == '-' || (head >= '0' && head <= '9')) {
+      continue
+    }
+    let is_delete = head == 'd'
     let lits : Array[Lit] = []
     for n in scan_drat_ints(line) {
       if n == 0 {
