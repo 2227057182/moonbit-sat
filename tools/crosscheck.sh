@@ -104,6 +104,20 @@ for row in petersen-mwvc.wcnf:5 grid-mwvc.wcnf:9 scheduling.wcnf:0; do
   rm -f "$cnf" "$proof"
 done
 
+# --- C. large instances (opt in with BIG=1; the k=10 solve alone takes ~4 min) ---
+if [ "${BIG:-0}" = "1" ]; then
+  gen_php 10 >"$WORK/php-10.cnf"
+  "$M" proof "$(inline "$WORK/php-10.cnf")" | grep -E '^(-?[0-9]|d )' >"$WORK/php-10.drat"
+  run_case "php 10/9" "$WORK/php-10.cnf" "$WORK/php-10.drat" || fails=$((fails + 1))
+  rm -f "$WORK/php-10.cnf" "$WORK/php-10.drat"
+
+  # 20x20 grid MWVC, refute cost <= 199.  The encoding blows up to 80201 vars.
+  "$M" grid-wcnf 20 20 >"$WORK/grid20.wcnf"
+  "$M" maxsat-cnf "$(inline "$WORK/grid20.wcnf")" 199 >"$WORK/grid20-k199.cnf"
+  "$M" maxsat-proof "$(inline "$WORK/grid20.wcnf")" 199 | grep -E '^(-?[0-9]|d )' >"$WORK/grid20-k199.drat"
+  run_case "grid20 k=199" "$WORK/grid20-k199.cnf" "$WORK/grid20-k199.drat" || fails=$((fails + 1))
+  rm -f "$WORK/grid20.wcnf" "$WORK/grid20-k199.cnf" "$WORK/grid20-k199.drat" "$WORK/grid20-k199.lrat"
+fi
 if [ "$fails" -ne 0 ]; then
   say "$fails case(s) did not verify"
   exit 1
