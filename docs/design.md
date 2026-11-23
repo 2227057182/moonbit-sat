@@ -11,9 +11,9 @@
 | `solver.mbt` | CDCL 搜索、证明记录、统计 | `lit`、`cnf` |
 | `checker.mbt` | DRAT 解析与独立 RUP/RAT 校验器 | `lit`、`cnf` |
 | `maxsat.mbt` | WCNF 解析、Sinz 基数编码、二分最优化 | `lit`、`cnf`、`solver` |
-| `cmd/main` | 命令行入口 | 以上全部 |
+| `cmd/main` | 命令行入口（`@path` 读盘） | 以上全部、官方 `moonbitlang/x/fs` |
 
-依赖是单向的：求解器不引用检查器，检查器不引用求解器。这样「证明」与「验证明」之间不存在共享实现，校验结果才有意义。
+依赖是单向的：求解器不引用检查器，检查器不引用求解器。这样「证明」与「验证明」之间不存在共享实现，校验结果才有意义。唯一的第三方依赖 `moonbitlang/x/fs` 只出现在 `cmd/main`，库的五个源文件都只引用 `moonbitlang/core`。
 
 ## 字面编码
 

@@ -1,6 +1,6 @@
 name = "2227057182/moonbit-sat"
 
-version = "0.7.5"
+version = "0.7.6"
 
 readme = "README.mbt.md"
 
@@ -13,3 +13,7 @@ keywords = ["sat", "cdcl", "maxsat", "drat", "solver", "reasoning"]
 preferred_target = "wasm"
 
 description = "Cross-backend CDCL SAT solver with DRAT-checkable UNSAT proofs, incremental assumptions and weighted MaxSAT optimisation."
+
+import {
+  "moonbitlang/x@0.5.6",
+}

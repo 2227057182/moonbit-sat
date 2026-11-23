@@ -133,9 +133,10 @@ moon run cmd/main -- maxsat-solution "<WCNF 文本>"
 moon run cmd/main -- maxsat-oll "<WCNF 文本>"
 moon run cmd/main -- maxsat-oll-budget "<WCNF 文本>" <rounds>
 moon run cmd/main -- verify-solution "<WCNF 文本>" <cost> "<lits，如 1 -2 3 0>"
+moon run cmd/main -- verify @examples/pigeonhole-3-2.cnf @proof.drat
 ```
 
-命令行不接受文件 IO（MoonBit core 目前没有文件系统模块），文本参数中用 `;` 代替换行。把文件路径直接当参数传会被挡下并提示 `"$(cat file)"` 的写法——早期版本会把路径里的数字当成公式，静默给出一个错误结论。示例：
+命令行接受两种输入：内联文本（用 `;` 代替换行），或 `@路径`。后者是 0.7.6 起的：以 `@` 开头的参数按文件路径读取，读到的文本直接替换该参数，公式与证明两侧都适用，24 MB 的证明只能这样传。读盘由 `cmd/main` 用的官方 `moonbitlang/x/fs` 完成；库包本身不新增依赖，`moon.mod` 的 `deps` 仍为空。读不到文件时打印 `c error: cannot read file <path>` 并退出。不以 `@` 开头的路径参数照旧被挡下，提示改用 `@path` 或 `"$(cat file)"`——早期版本会把路径里的数字当成公式，静默给出一个错误结论。示例：
 
 ```
 moon run cmd/main -- solve "p cnf 3 3;1 2 0;-1 0;-2 0"

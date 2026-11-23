@@ -16,7 +16,7 @@
 | 加权 MaxSAT | WCNF 解析 + 松弛变量 + Sinz 顺序计数编码 + 二分求最优成本 |
 | MaxSAT 最优性 | 下界侧 `maxsat_bound_proof` 导出「代价 `k` 不可达」的 DRAT 证明；上界侧 `maxsat_solution` 给出代价恰为 `opt` 的赋值，`maxsat_model_cost` 按 WCNF 原文复算；`maxsat-verify` 两端一起验 |
 | 预处理 | `Formula::simplify` 去掉子句内重复文字、删除重言子句，并统计被删条数 |
-| 四后端 | 不依赖 FFI、不依赖外部求解器，`preferred_target = "wasm"` 下与 native 同结果 |
+| 四后端 | 求解与校验不手写 FFI、不依赖外部求解器，`preferred_target = "wasm"` 下与 native 同结果；命令行的 `@path` 读盘用官方 `moonbitlang/x/fs` |
 
 全部证据（判定 / 证明 / 校验 / core / 加权 / 最优性两端 / 压力）的复现步骤与预期输出见 [docs/reproduce.md](docs/reproduce.md)。
 
@@ -157,9 +157,11 @@ moon run cmd/main -- maxsat-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"     
 moon run cmd/main -- maxsat-oll "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"             # 核心引导，总软权重无上限
 moon run cmd/main -- maxsat-oll-budget "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 50   # 同上，加轮预算：不收敛时打印上下界
 moon run cmd/main -- verify-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 1 "v 1 -2 0"   # 只核对导出的赋值
+moon run cmd/main -- proof  @examples/pigeonhole-3-2.cnf > p32.drat      # 从文件读公式，证明写进文件
+moon run cmd/main -- verify @examples/pigeonhole-3-2.cnf @p32.drat        # 再从文件验回来，24 MB 的证明只能这样传
 ```
 
-参数里的 `;` 会被当作换行，公式可以直接内联传参，无需临时文件。
+参数里的 `;` 会被当作换行，公式可以直接内联传参；也可以用 `@路径` 从文件读（0.7.6 起），24 MB 的证明只有这条路径能进。
 
 ## 生态里为什么还需要它
 
@@ -198,7 +200,7 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 
 ```bash
 moon check --deny-warn   # 0 warnings
-moon test                # 87 passed
+moon test                # 90 passed
 ```
 
 ## 基准
@@ -221,7 +223,7 @@ moon run cmd/main -- bench
 
 ### 证明校验耗时
 
-`bench-verify <k>` 在同一进程里构造 `k` 鸽 `k-1` 洞实例、求解、取证明、校验并打印行数——几千行的证明不可能作为命令行参数传进来（单个参数有 128KB 上限）。
+`bench-verify <k>` 在同一进程里构造 `k` 鸽 `k-1` 洞实例、求解、取证明、校验并打印行数——几千行的证明不可能作为命令行参数内联（单个参数 128KB 上限），但可以 `verify @cnf @proof` 从文件读：0.7.6 在 native 上验过鸽巢 k=10 的 24.7 MB 证明，整条命令 89 s 得到 `s VERIFIED`。
 
 ```bash
 moon run cmd/main -- bench-verify 9

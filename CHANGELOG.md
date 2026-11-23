@@ -2,6 +2,23 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.7.6
+
+### 命令行（会改变调用方式）
+
+- 参数支持 `@path`：以 `@` 开头的参数按文件路径读取，用读到的文本替换原参数，公式与证明两侧都适用。以前只能内联，24 MB 的鸽巢 k=10 证明受单个参数 128 KB（Linux `MAX_ARG_STRLEN`）上限根本传不进来；现在 `verify @php-10.cnf @php-10.drat` 在 native 上整条命令 89 s 输出 `s VERIFIED`（含读盘与解析）。
+- 读盘用官方 `moonbitlang/x/fs`（0.5.6）。这是第一个外部依赖，只在可执行包 `cmd/main` 里；库包仍只依赖 `moonbitlang/core`，`moon.mod` 的 `deps` 保持为空。native / wasm-gc / js 三个后端的命令行都能构建。
+- 读不到文件时打印 `c error: cannot read file <path>` 并以 0 退出，不再把路径里的数字当成公式内容。
+- 不以 `@` 开头的路径参数照旧挡下，提示从「用 `"$(cat file)"`」改为「用 `@path` 或 `"$(cat file)"`」。内联调用与默认行为完全不变。
+
+### 检查器（会改变行为）
+
+- 证明里出现公式未声明的变量（例如只有 2 个变量的公式配上 `999 0`）以前索引越界 abort（native 下 exit 134、SIGABRT），现在由 `steps_in_range` 判为无效证明，输出 `s PROOF-REJECTED`。DRAT 的变量范围由公式头决定，超出即是错误证明。
+- 代价是 24 MB 证明多一遍变量范围扫描：native 实测 89.1 s → 89.6 s（+0.6%）。
+- 新增 3 个测试（`checker_guard_wbtest.mbt`）：越界证明被拒、范围内证明仍 `VERIFIED`、越界行出现在空子句之前也不会被判成功。测试 87 → 90。
+
+`moon check --deny-warn`（默认与 native 目标）零告警，`moon test` 与 `moon test --target js` 均 90/90，native / js / wasm-gc 三个后端的 `moon build --release` 全过。
+
 ## 0.7.5
 
 ### 文档

@@ -1,6 +1,6 @@
 # 复现
 
-从空目录开始，八节命令就能看到本项目的全部证据。默认 Linux/macOS 的 shell，Windows 把 `$(cat 文件)` 换成 `Get-Content` 或直接把文本拼成一行。
+从空目录开始，八节命令就能看到本项目的全部证据。默认 Linux/macOS 的 shell；Windows 上命令相同，`@路径` 由命令行自己读盘，不必换 shell 写法。
 
 ## 前置
 
@@ -10,14 +10,14 @@ MoonBit 工具链（`moon` 在 PATH 里）；native 目标需要一个 C 编译�
 git clone https://github.com/2227057182/moonbit-sat.git
 cd moonbit-sat
 moon check --deny-warn     # 0 warnings
-moon test                  # 67 passed, 0 failed
+moon test                  # 90 passed, 0 failed
 moon build --target native --release
 M=_build/native/release/build/cmd/main/main.exe
 ```
 
 `moon test --target js` 是同一套测试在 js 后端的结果，数字一样。
 
-命令行不接受文件路径：公式与证明都内联传入，`;` 等价于换行。这是 MoonBit core 目前没有文件系统模块导致的限制，`docs/api.md` 里有说明。
+公式与证明既可以内联（`;` 等价于换行），也可以用 `@路径` 让命令行自己读文件。后者是 0.7.6 加的：读盘走官方 `moonbitlang/x/fs`，库本身仍然不碰文件。下文第 2、3 节各演示一次；更大的证明（24 MB 的鸽巢 k=10）只能走文件，内联会撞上单个参数 128 KB 的 `MAX_ARG_STRLEN` 上限。
 
 ## 1. 判定
 
@@ -36,7 +36,8 @@ c decisions=0 propagations=2 conflicts=0 restarts=0 learnts=0 minimised=0
 ## 2. 证明
 
 ```bash
-$M proof "$(cat examples/pigeonhole-3-2.cnf)"
+$M proof @examples/pigeonhole-3-2.cnf             # 公式从文件读，证明打到标准输出
+$M proof @examples/pigeonhole-3-2.cnf > p32.drat  # 同一份，落成文件给下一节用
 ```
 
 ```
@@ -50,6 +51,7 @@ s UNSATISFIABLE
 ## 3. 校验
 
 ```bash
+$M verify @examples/pigeonhole-3-2.cnf @p32.drat     # 两个输入都从文件读
 $M verify "$(cat examples/pigeonhole-3-2.cnf)" "-1 0
 0
 c decisions=1"
@@ -141,7 +143,7 @@ $M bench-verify 9
 c verify k=9 vars=72 proof_lines=40273 sat=false result=VERIFIED
 ```
 
-9 鸽 8 洞：72 个变量、40273 行证明，进程内构造、求解、再逐条 RUP 校验，大约 6 秒。这一步绕开了命令行参数长度上限，因为 4 万行证明塞不进一个参数。
+9 鸽 8 洞：72 个变量、40273 行证明，进程内构造、求解、再逐条 RUP 校验，大约 6 秒。4 万行证明塞不进一个命令行参数，所以这条路径不经过 shell；要验外部文件则用 `verify @cnf @proof`（下一行是大规模实测）。
 
 ## 8. 外部交叉验证
 
@@ -162,7 +164,7 @@ petersen-mwvc k=5  13    s VERIFIED   c VERIFIED
 
 最后一行是 `all cases verified by drat-trim and lrat-check`，任一案例失败则退出码非 0。`drat-trim` 的分项统计显示全部案例 **0 RAT 引理**，即输出证明是纯 DRUP，只需 RUP 就能验。方法和完整表格见 [docs/crosscheck.md](crosscheck.md)。
 
-反方向的一半也在默认测试里：xternal_proof_wbtest.mbt 把 CaDiCaL 3.1.0 对鸽巢 6/5 写出的 235 行证明原样交给本项目检查器，erify 与 erify-rat 都判通过，删掉末尾空子句即被拒绝；这一步不需要装 CaDiCaL，见 [docs/crosscheck.md](crosscheck.md)「反方向」。
+反方向的一半也在默认测试里：external_proof_wbtest.mbt 把 CaDiCaL 3.1.0 对鸽巢 6/5 写出的 235 行证明原样交给本项目检查器，verify 与 verify-rat 都判通过，删掉末尾空子句即被拒绝；这一步不需要装 CaDiCaL，见 [docs/crosscheck.md](crosscheck.md)「反方向」。
 
 ## 参考耗时
 
@@ -175,5 +177,6 @@ Ubuntu 云主机、native release、单次运行（含进程启动）：
 | `maxsat-verify` 10×10 网格（100 变量） | 347 ms |
 | `bench-verify 9` | 约 6 s |
 | `bench-verify 10` | 约 280 s；旧记录 350 s（机器不同，见 `docs/benchmarks.md`「0.7.4 同机复跑」） |
+| `verify @php-10.cnf @php-10.drat`（24.7 MB、295345 行） | 89 s，含读盘与解析（0.7.6） |
 
 数字随机器浮动，量级应当一致。

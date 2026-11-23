@@ -452,12 +452,33 @@ fn rat_check(db : CheckDb, lits : Array[Lit]) -> Bool {
 ///|
 /// Shared driver for both checkers.  `allow_rat` turns the fallback on;
 /// `require_empty` decides whether the proof has to end with the empty clause.
+///|
+/// A proof may only mention variables the formula declares.  A line such as
+/// `999 0` against a two-variable formula used to index past the checker's
+/// arrays and abort the process; instead the proof is rejected, which is what
+/// DRAT means by an out-of-range literal.
+fn steps_in_range(formula : Formula, steps : Array[DratStep]) -> Bool {
+  let nv = formula.num_vars
+  for step in steps {
+    for l in step.lits {
+      if l / 2 >= nv {
+        return false
+      }
+    }
+  }
+  true
+}
+
+///|
 fn check_steps(
   formula : Formula,
   steps : Array[DratStep],
   allow_rat : Bool,
   require_empty : Bool,
 ) -> Bool {
+  if !steps_in_range(formula, steps) {
+    return false
+  }
   let db = CheckDb::new(formula.num_vars)
   for c in formula.clauses {
     db.add(c.lits)

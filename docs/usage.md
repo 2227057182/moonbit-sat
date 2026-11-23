@@ -5,7 +5,7 @@
 ## 环境要求
 
 - MoonBit 0.1.x（`moon check` 可用），core 由工具链自带。
-- 无第三方依赖、无 FFI、无外部求解器；四个后端只需标准构建工具链。
+- 库无第三方依赖、无手写 FFI、无外部求解器；命令行可执行包 `cmd/main`（0.7.6 起）额外引入官方 `moonbitlang/x/fs`，只用于把 `@path` 参数读成字符串。四个后端只需标准构建工具链。
 - native 后端需要本机有 C 编译器与链接器（Windows 需 MSVC，Linux/macOS 需 clang 或 gcc）。
 
 ## 安装
@@ -190,9 +190,11 @@ moon run cmd/main -- maxsat-oll-budget "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 50
 moon run cmd/main -- verify-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 1 "v 1 -2 0"
 moon run cmd/main -- bench
 moon run cmd/main -- bench-verify 9
+moon run cmd/main -- proof    @examples/pigeonhole-3-2.cnf > p32.drat   # 从文件读公式，证明写进文件
+moon run cmd/main -- verify   @examples/pigeonhole-3-2.cnf @p32.drat     # 再从文件验回来
 ```
 
-参数中的 `;` 等价于换行，公式直接内联，不需要临时文件（MoonBit core 目前没有文件系统模块）。直接传文件路径会被挡下并提示 `"$(cat file)"` 的写法，避免把路径里的数字当成公式、静默给出错误结论。
+参数中的 `;` 等价于换行，公式也可以直接内联。以 `@` 开头的参数按文件路径读取内容，`@examples/pigeonhole-3-2.cnf` 与 `"$(cat examples/pigeonhole-3-2.cnf)"` 等价，但不用经过 shell 展开。24 MB 的鸽巢 k=10 证明只能这样传：内联会撞上单个参数的 128 KB 上限（Linux `MAX_ARG_STRLEN`，Windows 约 32 KB）。直接写路径（不以 `@` 开头）仍会被挡下，提示改用 `@path` 或 `"$(cat file)"`，避免把路径里的数字当成公式、静默给出错误结论。读盘走官方 `moonbitlang/x/fs`；库本身不碰文件。
 
 输入不合法时不再静默给结论，而是打印一行 `c error: …` 并以 0 退出：WCNF 缺少 `p wcnf <vars> <clauses> <top>`（或 top 不为正）、软权重为负、整数参数里含非数字、`bench-verify` 的 k 不在 6..10，都会这样被挡下。
 
@@ -230,12 +232,12 @@ moon run cmd/main -- bench-verify 9
 缺 C 编译器/链接器。Windows 需要安装 MSVC 并让 `moon` 找到它；其他后端（wasm、wasm-gc、js）不需要。
 
 **求解器支持文件读写吗？**
-库与命令行都不做文件 IO，因为 MoonBit core 当前没有 fs 模块。需要读文件时，在调用方读入文本再传给 `parse_dimacs` / `parse_wcnf`。
+库不做文件 IO：`parse_dimacs` / `parse_wcnf` 只吃文本，由调用方读入。命令行（0.7.6 起）提供 `@path`，把文件内容直接当参数，读盘由官方 `moonbitlang/x/fs` 完成，native / wasm-gc / js 三个后端都能构建；读不到时打印 `c error: cannot read file <path>` 并以 0 退出。
 
-**为什么大证明要用 `bench-verify` 而不是 `verify`？**
+**大证明怎么验？**
 检查器只解析 ASCII DRAT（每行一条子句）。二进制 DRAT（CaDiCaL 的默认二进制输出）需要先转成文本，例如 `cadical --binary=false`；直接喂二进制会被读成杂乱的小子句集并判 `PROOF-REJECTED`，而不是报格式错误。
 
-操作系统对单个命令行参数有上限（Linux 128KB、Windows 约 32KB），一万行的证明就会 `Argument list too long`。`bench-verify <k>` 在同一进程里构造 `k` 鸽 `k-1` 洞实例、求解、取证明、校验并打印行数，不经过命令行。检查外部文件时走库 API `verify_proof(formula, text)`，把文本读进来再传即可。
+两个输入都用 `@path` 交给命令行自己读：`verify @php-10.cnf @php-10.drat`。0.7.6 在 native 上实测 k=10 的 24.7 MB 证明（295345 行），整条命令 89 s 输出 `s VERIFIED`，含读盘与解析。手边没有文件时，`bench-verify <k>` 在同一进程里构造 `k` 鸽 `k-1` 洞实例、求解、取证明、校验并打印行数，不经过命令行。
 
 **为什么没有并行和变量消除？**
 两者都会改变四后端的一致性假设或增加实现风险，当前版本不做；见 [roadmap.md](roadmap.md)。

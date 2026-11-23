@@ -9,8 +9,8 @@ Apache-2.0，全文见仓库根目录的 [LICENSE](../LICENSE)。允许商用与
 ## 代码来源
 
 - 仓库内全部 MoonBit 代码为本项目原创编写，未复制任何第三方项目的源文件，也未做机械翻译式的移植。
-- `moon.mod` 没有 `deps` 字段：不依赖任何第三方 MoonBit 包。
-- 没有 FFI 调用，不链接、不调用 MiniSat、CaDiCaL、Kissat 等外部求解器；求解、检查、优化都在 MoonBit 内完成。
+- `moon.mod` 的 `deps` 为空：库本身不依赖任何第三方 MoonBit 包。命令行可执行包 `cmd/main`（0.7.6 起）引入官方 `moonbitlang/x/fs`，仅用于把 `@path` 参数读成字符串。
+- 没有手写 FFI 调用，不链接、不调用 MiniSat、CaDiCaL、Kissat 等外部求解器；求解、检查、优化都在 MoonBit 内完成。`moonbitlang/x/fs` 的 native 部分由官方包自带 C 源，不在本仓库。
 - 没有引入 GPL/AGPL 代码，因此不存在许可证传染问题。
 
 ## 方法参考（公开算法，非代码复制）

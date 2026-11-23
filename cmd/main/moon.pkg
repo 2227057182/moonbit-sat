@@ -1,6 +1,7 @@
 import {
   "2227057182/moonbit-sat" @lib,
   "moonbitlang/core/env" @env,
+  "moonbitlang/x/fs" @fs,
 }
 
 pkgtype(kind: "executable")

@@ -23,7 +23,7 @@ fn reject_path_arg(text : String, what : String) -> Bool {
   }
   if text.contains("/") || text.contains("\\") || text.contains(".cnf") || text.contains(".wcnf") {
     println(
-      "c error: the \{what} argument looks like a file path; formulas are passed inline, so expand it first with \"$(cat file)\"",
+      "c error: the \{what} argument looks like a file path; pass @path to read it from disk, or inline it with \"$(cat file)\"",
     )
     return true
   }
@@ -306,11 +306,40 @@ fn usage() -> Unit {
   println("  moonbit-sat bench-verify <k>           refute pigeonhole k/k-1 and check the proof in-process")
   println("")
   println("`;` in the argument is treated as a newline, so formulas can be passed inline.")
+  println("An argument starting with `@` names a file and is read from disk, e.g. @examples/pigeonhole-3-2.cnf.")
 }
 
 ///|
 fn main {
-  let args = @env.args()
+  let raw_args = @env.args()
+  // An argument that starts with `@` names a file and is read from disk.  The
+  // alternative is passing the text inline, which hits the 128 KB per-argument
+  // limit of the kernel on Linux long before a k=10 proof (24 MB) fits.
+  let args : Array[String] = []
+  let mut unreadable = false
+  let mut i = 0
+  while i < raw_args.length() {
+    let a = raw_args[i]
+    if i >= 2 && a.length() > 0 && a[0] == '@' {
+      let path = a[1:].to_owned()
+      let text = try {
+        @fs.read_file_to_string(path)
+      } catch {
+        _ => {
+          println("c error: cannot read file \{path}")
+          unreadable = true
+          ""
+        }
+      }
+      args.push(text)
+    } else {
+      args.push(a)
+    }
+    i = i + 1
+  }
+  if unreadable {
+    return
+  }
   if args.length() < 3 {
     if args.length() == 2 && args[1] == "bench" {
       run_bench()

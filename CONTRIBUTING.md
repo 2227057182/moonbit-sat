@@ -4,7 +4,7 @@
 
 - MoonBit 工具链（`moon` 0.1.2026xxxx 及以上）
 - 标准库 `moonbitlang/core` 已通过 `moon bundle` 为所需后端准备好
-- 不需要任何外部依赖
+- 库本身不需要外部依赖；命令行可执行包会自动拉取官方 `moonbitlang/x`（`moon build` 时联网一次，之后走缓存）
 
 ## 构建与测试
 
@@ -51,5 +51,5 @@ moon build --target native
 
 - 证明只产出 RUP 步骤，校验器不接受 RAT。
 - MaxSAT 总软权重受 `weight_cap` 限制，超限直接报错而不是截断。
-- 不支持文件 IO（MoonBit core 没有文件系统模块），命令行用内联文本参数。
+- 库不做文件 IO（`parse_dimacs` / `parse_wcnf` 只吃文本）；命令行可以内联文本，也可以用 `@路径` 读文件（0.7.6 起，走官方 `moonbitlang/x/fs`）。
 - 不引入外部 SAT 求解器依赖。

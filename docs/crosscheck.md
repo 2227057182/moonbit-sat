@@ -104,16 +104,16 @@ cadical --binary=false php-6.cnf php-6.drat
 
 ## 顺带修掉的一个坑
 
-命令行不接受文件路径（MoonBit core 没有文件系统模块，公式一律内联传入）。但早期版本把路径当文本扫数字：`proof examples/pigeonhole-3-2.cnf` 会从文件名里抠出 `3` 和 `2`，造出一个小公式，然后打印 `s SATISFIABLE`。对求解器来说这是最坏的失败模式——不是报错，是给一个自信的错误答案。0.6.5 起这类参数被挡下：
+0.6.5 到 0.7.5 命令行不接受文件路径（MoonBit core 没有文件系统模块，公式一律内联传入），路径参数会被挡下；0.7.6 起 `@路径` 成了正规入口，读盘由官方 `moonbitlang/x/fs` 完成，不以 `@` 开头的路径仍然挡下。更早的版本（0.6.4 及以前）则把路径当文本扫数字：`proof examples/pigeonhole-3-2.cnf` 会从文件名里抠出 `3` 和 `2`，造出一个小公式，然后打印 `s SATISFIABLE`。对求解器来说这是最坏的失败模式——不是报错，是给一个自信的错误答案。0.6.5 起这类参数被挡下：
 
 ```
-c error: the formula argument looks like a file path; formulas are passed inline, so expand it first with "$(cat file)"
+c error: the formula argument looks like a file path; pass @path to read it from disk, or inline it with "$(cat file)"
 ```
 
-判定很窄：参数里没有 `p cnf` / `p wcnf` 头，同时含 `/`、`\`、`.cnf`、`.wcnf` 才拦。正常的内联公式不受影响。
+判定很窄：参数里没有 `p cnf` / `p wcnf` 头，同时含 `/`、`\`、`.cnf`、`.wcnf` 才拦。正常的内联公式不受影响；`@` 开头的参数在读盘之前就被单独处理，不会被这条判定误伤。
 
 ## 没有做到的
 
 - 核心引导路径（`maxsat_oll`）不导出下界证明，所以外部检查覆盖的是编码路径的「上下界」证明，不是核心引导每一轮 core 的可移植证明。
 - 外部样本只有一个求解器、两个实例：CaDiCaL 3.1.0 对鸽巢 6/5 与 7/6 写出的都是纯 DRUP，`verify-rat` 的 RAT 分支仍无真实外部证据；SAT Competition 的官方证明集多是 kissat/cadical 的大实例，没有整包对比。
-- k=10 的鸽巢能生成证明，但本项目自己的检查器要 350 秒（每个文字挂数千条监听的结构性问题，见 [roadmap.md](roadmap.md)）；`drat-trim` 本身对这种规模没有压力，所以这里的瓶颈是我们，不是外部工具。
+- k=10 的鸽巢能生成证明，但本项目自己的检查器仍比 `drat-trim` 慢数倍：0.7.4 同机端到端 277.5 s（其中求解 207.7 s、纯校验约 70 s），0.7.6 对已有证明 `verify @cnf @drat` 整条 89 s（含读盘与解析）。`drat-trim` 本身对这种规模没有压力，所以这里的瓶颈是我们，不是外部工具。
