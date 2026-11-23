@@ -2,7 +2,7 @@
 
 对应验收条「工作有效：本期有实质新增」。这里只列十一月一日起进仓库的东西，按能力而非按提交排列；每条都给出可核对的位置。
 
-## 从 0.5.0 到 0.7.1
+## 从 0.5.0 到 0.7.2
 
 | 能力 | 版本 | 之前的状态 | 现在的状态 | 可核对处 |
 | --- | --- | --- | --- | --- |
@@ -23,11 +23,12 @@
 - 测试：37 → 82，wasm / js / native 同结果，`moon check --deny-warn` 零告警。
 - 命令：8 → 17 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`maxsat-oll`、`maxsat-oll-budget`、`verify-solution`）。
 - 文档：`docs/` 共 11 篇（新增 `benchmarks.md`、`proof.md`、`november.md`、`reproduce.md`、`crosscheck.md`、`申报书.md`）。
-- 提交：十一月一日至二十三日共 88 次（0.6.7 发布前 78 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
-- 发布：Mooncakes 0.5.0 → 0.7.1，每次 `build=success`（0.6.9 与 0.7.0 均已在 registry 显示 `latest_version`），0.6.4 起每个版本都有 tag 与 GitHub Release。
+- 提交：十一月一日至二十三日共 89 次（0.6.7 发布前 78 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
+- 发布：Mooncakes 0.5.0 → 0.7.2，每次 `build=success`（0.6.9 与 0.7.0 均已在 registry 显示 `latest_version`），0.6.4 起每个版本都有 tag 与 GitHub Release。
 
 ## 没有做到的
 
+- 核心引导的 at-least 基数网络没有实现：三组实例实测下界每轮只涨 `wmin`，at-least-k 的 k 恒为 1，形式上的补齐不改变任何数字（推导见 `docs/proof.md`，这是主动放弃而非遗漏）。
 - 核心引导路径在均匀权重的大图上按层推进，每轮一层：20×20 加权网格仍没有跑到收敛，只能靠轮预算带界返回（`lower= 2000 upper= 40000`）；大均匀权重实例仍应走编码路径。
 - 外部证明只覆盖一个求解器、两个小实例：CaDiCaL 3.1.0 对鸽巢 6/5 与 7/6 写出的都是纯 DRUP，`verify-rat` 的 RAT 分支没有真实外部样本；SAT Competition 的官方证明集（多为 kissat / cadical 的大实例）没有整包对比。
 - 检查器 k=10（295345 行）校验 127s，仍比 `drat-trim` 慢约 7 倍，瓶颈在传播调度。
