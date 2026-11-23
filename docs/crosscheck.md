@@ -58,7 +58,7 @@ Linux 云主机、native release、`gcc 11.4`、单次运行：
 
 两点值得单独说明。
 
-**全部案例都是 0 RAT 引理。** 也就是说本项目输出的证明是纯 RUP（DRUP）：每条学到的子句都能靠单元传播从已有子句推出冲突，不需要 RAT 的「对该文字所有子句做 resolvent」那套机制。这让外部检查的门槛降到最低——任何只支持 DRUP 的检查器也能用。项目里的 `verify-rat` 是为读别人的证明准备的，不是为自己输出准备的。
+**全部案例都是 0 RAT 引理。** 也就是说本项目输出的证明是纯 RUP（DRUP）：每条学到的子句都能靠单元传播从已有子句推出冲突，不需要 RAT 的「对该文字所有子句做 resolvent」那套机制。这让外部检查的门槛降到最低——任何只支持 DRUP 的检查器也能用。项目里的 `verify-rat` 是为读别人的证明准备的，不是为自己输出准备的；下一节给出真实的读入样本。
 
 **加权部分现在也能交给外部检查器。** 以前 `maxsat_bound_proof` 只能用自己的检查器复验，因为编码后的 CNF 没有导出入口，外人拿不到「公式」。0.6.5 起 `maxsat-cnf <wcnf> <k>` 直接打印 `maxsat_encoding(w, k)` 的 DIMACS，于是「最优性下界」也能走 `drat-trim` + `lrat-check`：拿到的公式和证明都来自本项目，判定则由第三方给出。
 
@@ -71,6 +71,34 @@ drat-trim enc.cnf bound.drat
 ```
 
 `maxsat-cnf 5` 的语义是「软代价 ≤ 5 是否可行」，`petersen` 的最优代价是 6，所以这个公式不可满足，它的证明才构成最优性下界的证据。取 `k = opt` 时公式可满足，`maxsat-proof` 会返回 `s SATISFIABLE (cost <= opt achievable)` 而不是证明——这一点也是可验证的。
+
+## 反方向：别人产的证明，我们验
+
+上面全是「本项目产证明、第三方判定」。反方向同样重要：如果检查器只认自己求解器写出的形状，它就只是个自洽的回声。0.7.1 起仓库里带着一份真正外来的证明。
+
+用 CaDiCaL 3.1.0（`git clone` 后 `./configure && make`，`gcc 11.4`）对鸽巢 6 鸽 5 洞求解，写 ASCII DRAT：
+
+```bash
+cadical --binary=false php-6.cnf php-6.drat
+# s UNSATISFIABLE；证明 235 行：156 条添加、79 条删除，末尾是空子句
+```
+
+同一份证明交给三家：
+
+| 检查器 | 结果 |
+| --- | --- |
+| 本项目 `verify`（只认 RUP） | `s VERIFIED` |
+| 本项目 `verify-rat`（RUP + RAT） | `s VERIFIED` |
+| `drat-trim` | `s VERIFIED`，0 RAT 引理 |
+
+鸽巢 7 鸽 6 洞同样过：CaDiCaL 写出 1846 行 / 37 KB，本项目两个检查器都判 `s VERIFIED`。
+
+验收是有条件的：删掉末尾那个空子句，同一份文件立刻变成 `s PROOF-REJECTED`（`verify` 与 `verify-rat` 一致）——不是把文件读进来就点头。
+
+公式（82 行）与证明（235 行）已经内联进 `external_proof_wbtest.mbt` 的两个测试，`moon test` 直接复跑，不必装 CaDiCaL，也不依赖网络。
+
+**它没有覆盖的**：CaDiCaL 3.1.0 在这两个实例上写出的都是纯 DRUP，没有一行需要 RAT。试过 `--block`、`--elimfast`、`--sweep` 与含 ITE 门、XOR 门的构造实例，它仍然只产 RUP 行，所以 `verify-rat` 的 RAT 分支目前只有 `rat_wbtest.mbt` 里的正例与反例支撑，没有真实外部样本。
+
 
 ## 顺带修掉的一个坑
 
@@ -85,5 +113,5 @@ c error: the formula argument looks like a file path; formulas are passed inline
 ## 没有做到的
 
 - 核心引导路径（`maxsat_oll`）不导出下界证明，所以外部检查覆盖的是编码路径的「上下界」证明，不是核心引导每一轮 core 的可移植证明。
-- 没有和 SAT Competition 的官方证明集对比：那些实例的证明由别的求解器产生，用它们的证明喂本项目检查器属于另一件事，见 [proof.md](proof.md) 里的篡改实验。
+- 外部样本只有一个求解器、两个实例：CaDiCaL 3.1.0 对鸽巢 6/5 与 7/6 写出的都是纯 DRUP，`verify-rat` 的 RAT 分支仍无真实外部证据；SAT Competition 的官方证明集多是 kissat/cadical 的大实例，没有整包对比。
 - k=10 的鸽巢能生成证明，但本项目自己的检查器要 350 秒（每个文字挂数千条监听的结构性问题，见 [roadmap.md](roadmap.md)）；`drat-trim` 本身对这种规模没有压力，所以这里的瓶颈是我们，不是外部工具。

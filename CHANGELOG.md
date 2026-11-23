@@ -2,6 +2,19 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.7.1
+
+### 测试
+
+- 新增 `external_proof_wbtest.mbt`：把 CaDiCaL 3.1.0 对鸽巢 6 鸽 5 洞写出的 235 行 DRAT（156 条添加、79 条删除）与对应公式（82 行）原样内联，`verify_proof` 与 `verify_proof_rat` 都通过；另一个测试删掉末尾空子句，确认同一份证明被拒绝。
+- `drat-trim` 对同一份证明也是 `s VERIFIED`（0 RAT 引理），三家结论一致；鸽巢 7 鸽 6 洞（1846 行 / 37 KB）同样通过。
+
+### 文档
+
+- `docs/crosscheck.md` 新增「反方向：别人产的证明，我们验」，记录 CaDiCaL 3.1.0 的编译方式与命令、三家检查结果、拒绝路径，以及 RAT 分支仍无真实外部样本的边界。
+- README 与 `docs/crosscheck.md` 的硬证据从 13 类升到 14 类，测试数 80 → 82。
+
+没有代码、API 或 CLI 行为变更。
 ## 0.7.0
 
 ### 新增

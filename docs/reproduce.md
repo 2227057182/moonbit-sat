@@ -162,6 +162,8 @@ petersen-mwvc k=5  13    s VERIFIED   c VERIFIED
 
 最后一行是 `all cases verified by drat-trim and lrat-check`，任一案例失败则退出码非 0。`drat-trim` 的分项统计显示全部案例 **0 RAT 引理**，即输出证明是纯 DRUP，只需 RUP 就能验。方法和完整表格见 [docs/crosscheck.md](crosscheck.md)。
 
+反方向的一半也在默认测试里：xternal_proof_wbtest.mbt 把 CaDiCaL 3.1.0 对鸽巢 6/5 写出的 235 行证明原样交给本项目检查器，erify 与 erify-rat 都判通过，删掉末尾空子句即被拒绝；这一步不需要装 CaDiCaL，见 [docs/crosscheck.md](crosscheck.md)「反方向」。
+
 ## 参考耗时
 
 Ubuntu 云主机、native release、单次运行（含进程启动）：
