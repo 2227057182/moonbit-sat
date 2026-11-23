@@ -371,7 +371,22 @@ pub fn maxsat_solve(w : Wcnf, weight_cap : Int) -> Int raise {
 /// carries a cardinality network, so there is no `weight_cap` on the total soft
 /// weight, and every step is justified by a core instead of a binary search over
 /// encodings.
-fn maxsat_oll_core(w : Wcnf) -> (Array[Bool], Int)? {
+///|
+/// Result of a core-guided run.
+///
+/// - `Solved(model, cost)`: an optimal model and its cost.
+/// - `Infeasible`: the hard clauses alone are unsatisfiable.
+/// - `Budgeted(lower, upper)`: the round budget ran out before the bounds met.
+///   `lower` only grows through cores; `upper` starts at the total soft weight
+///   and drops only when a model is found, so `upper - lower` is what is left
+///   to close.
+pub enum OllOutcome {
+  Solved(Array[Bool], Int)
+  Infeasible
+  Budgeted(Int, Int)
+}
+
+fn maxsat_oll_core(w : Wcnf, max_rounds : Int) -> OllOutcome {
   // Below the encoding cap the reformulation path is much faster than
   // core-guided search when all soft weights are small and equal, so take it:
   // same optimum, one implementation to trust.  The cap is a speed choice only.
@@ -387,7 +402,11 @@ fn maxsat_oll_core(w : Wcnf) -> (Array[Bool], Int)? {
     } catch {
       _ => None
     }
-    return encoded
+    let outcome = match encoded {
+      Some((model, cost)) => Solved(model, cost)
+      None => Infeasible
+    }
+    return outcome
   }
   let f = Formula::new(w.num_vars)
   for c in w.hard {
@@ -422,17 +441,22 @@ fn maxsat_oll_core(w : Wcnf) -> (Array[Bool], Int)? {
   }
   // Hard clauses alone unsat: no assignment, so no optimum to report.
   if !s.solve([]) {
-    return None
+    return Infeasible
   }
   // The branch and bound: `lb` only grows through cores, `ub` only shrinks as
   // models are found, and every model found is blocked so the next one has to
   // pay less.  The search stops when the two meet, or when the blockers leave
   // nothing cheaper than the best model already seen.
   let mut lb = 0
-  let mut ub = 0
+  let mut ub = total
   let mut have_best = false
   let mut best : Array[Bool] = []
+  let mut rounds = 0
   while true {
+    if max_rounds > 0 && rounds >= max_rounds {
+      return Budgeted(lb, ub)
+    }
+    rounds = rounds + 1
     let assumptions : Array[Lit] = []
     let mut j = 0
     while j < units.length() {
@@ -545,23 +569,39 @@ fn maxsat_oll_core(w : Wcnf) -> (Array[Bool], Int)? {
     }
   }
   if have_best {
-    return Some((best, ub))
+    Solved(best, ub)
+  } else {
+    Infeasible
   }
-  None
-}///|
+}
+
+///|
 /// Optimal weighted MaxSAT cost by core-guided search, or `-1` when the hard
 /// clauses alone are unsatisfiable.  No cap on the total soft weight: this path
 /// never builds a cardinality encoding.
 pub fn maxsat_oll(w : Wcnf) -> Int {
-  match maxsat_oll_core(w) {
-    None => -1
-    Some(pair) => pair.1
+  match maxsat_oll_core(w, 0) {
+    Solved(_, cost) => cost
+    Infeasible => -1
+    Budgeted(_, _) => -1
   }
+}
+
+///|
+/// Core-guided run with a round budget, so a large instance cannot spin
+/// forever.  `max_rounds <= 0` means no budget.  A round is one core query plus
+/// its bookkeeping; the count is deterministic for a given input, not a
+/// wall-clock deadline.
+pub fn maxsat_oll_result(w : Wcnf, max_rounds : Int) -> OllOutcome {
+  maxsat_oll_core(w, max_rounds)
 }
 
 ///|
 /// Optimal assignment and its cost by core-guided search.  `None` when the hard
 /// clauses alone are unsatisfiable.
 pub fn maxsat_oll_solution(w : Wcnf) -> (Array[Bool], Int)? {
-  maxsat_oll_core(w)
+  match maxsat_oll_core(w, 0) {
+    Solved(model, cost) => Some((model, cost))
+    _ => None
+  }
 }

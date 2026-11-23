@@ -138,3 +138,62 @@ test "core-guided search takes a single expensive core" {
   // the contradictory unit pair `3` / `-3` adds one more unit of cost.
   assert_eq(maxsat_oll(w), 1001)
 }
+
+///|
+test "core-guided search handles ternary hyperedges, not just graph edges" {
+  // Weighted hypergraph vertex cover: three ternary hyperedges over four
+  // vertices, with a soft `¬v` per vertex.  Only vertex 3 lies in all three
+  // hyperedges, so picking it covers everything and the optimum is the cost of
+  // the three vertices left out.  The clause shapes (length 3 hard, unit soft)
+  // and the 3-way intersection are both outside what the graph fixtures cover.
+  let big = parse_wcnf(
+    "p wcnf 4 7 201\n201 1 2 3 0\n201 2 3 4 0\n201 1 3 4 0\n200 -1 0\n200 -2 0\n200 -3 0\n200 -4 0\n",
+  )
+  let small = parse_wcnf(
+    "p wcnf 4 7 3\n3 1 2 3 0\n3 2 3 4 0\n3 1 3 4 0\n2 -1 0\n2 -2 0\n2 -3 0\n2 -4 0\n",
+  )
+  // Weights scale by 100, so the optimal assignment is the same and the costs
+  // scale with it; the small instance is the encoding-path reference.  Vertex 3
+  // alone hits all three hyperedges, so exactly one soft clause is given up.
+  let reference = maxsat_solve(small, 8)
+  assert_eq(reference, 2)
+  assert_eq(maxsat_oll(big), 100 * reference)
+  match maxsat_oll_solution(big) {
+    Some((model, cost)) => {
+      assert_eq(cost, 100 * reference)
+      assert_eq(maxsat_model_cost(big, model), cost)
+      assert_true(verify_maxsat_solution(big, model, cost))
+    }
+    None => assert_true(false)
+  }
+}
+
+///|
+test "core-guided search stops at a round budget and reports its bounds" {
+  let w = parse_wcnf(weighted_vertex_cover_wcnf(10, petersen_edges(), 100))
+  // Optimum 600 on a total soft weight of 1000; one round cannot close it.
+  match maxsat_oll_result(w, 1) {
+    Budgeted(lower, upper) => {
+      assert_true(lower >= 0)
+      assert_true(upper >= lower)
+      assert_true(upper != lower)
+    }
+    Solved(_, _) => assert_true(false)
+    Infeasible => assert_true(false)
+  }
+  // A budget past the loop's natural length must agree with the unbudgeted run.
+  match maxsat_oll_result(w, 1000) {
+    Solved(_, cost) => assert_eq(cost, 600)
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "a zero round budget means no budget" {
+  let w = parse_wcnf(weighted_vertex_cover_wcnf(10, petersen_edges(), 100))
+  match maxsat_oll_result(w, 0) {
+    Solved(_, cost) => assert_eq(cost, 600)
+    _ => assert_true(false)
+  }
+  assert_eq(maxsat_oll(w), 600)
+}

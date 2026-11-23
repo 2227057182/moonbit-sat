@@ -275,6 +275,7 @@ fn usage() -> Unit {
   println("  moonbit-sat maxsat-verify <wcnf>      check both halves of the optimum: a matching assignment and the refutation of opt-1")
   println("  moonbit-sat maxsat-solution <wcnf>    optimal assignment and its recomputed cost")
   println("  moonbit-sat maxsat-oll <wcnf>         core-guided optimum, no cap on total soft weight")
+  println("  moonbit-sat maxsat-oll-budget <wcnf> <rounds>  same, with a round budget: prints the bounds it reached")
   println("  moonbit-sat verify-solution <wcnf> <cost> <lits>  recompute the cost of an exported assignment")
   println("  moonbit-sat core   <dimacs> <lits>     unsat core of the given assumptions")
   println("  moonbit-sat grid-wcnf <rows> <cols>    print a grid minimum-vertex-cover WCNF instance")
@@ -456,6 +457,39 @@ fn main {
         })
       }
       None => println("s UNSATISFIABLE (hard clauses)")
+    }
+  } else if cmd == "maxsat-oll-budget" {
+    if args.length() < 4 {
+      usage()
+      return
+    }
+    let wcnf_text = decode(args[2])
+    if reject_path_arg(wcnf_text, "wcnf") {
+      return
+    }
+    let w = @lib.parse_wcnf(wcnf_text)
+    let rounds = parse_uint(args[3])
+    match @lib.maxsat_oll_result(w, rounds) {
+      Solved(model, cost) => {
+        let mut text = ""
+        let mut i = 0
+        while i < model.length() {
+          text = text + (if model[i] { "\{i + 1} " } else { "-\{i + 1} " })
+          i = i + 1
+        }
+        println("o \{cost}")
+        println("v \{text}0")
+        println(if @lib.verify_maxsat_solution(w, model, cost) {
+          "s SOLUTION-VERIFIED"
+        } else {
+          "s SOLUTION-REJECTED"
+        })
+      }
+      Budgeted(lower, upper) => {
+        println("c rounds= \{rounds} lower= \{lower} upper= \{upper}")
+        println("s UNKNOWN (round budget exhausted)")
+      }
+      Infeasible => println("s UNSATISFIABLE (hard clauses)")
     }
   } else if cmd == "maxsat-solution" {
     try {
