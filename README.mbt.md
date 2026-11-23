@@ -136,7 +136,10 @@ println(opt)                                   // 1
 ```moonbit
 let opt = @moonbit_sat.maxsat_oll(w)                              // 无总权重上限
 let best = @moonbit_sat.maxsat_oll_solution(w)                    // (赋值, 代价)?
+let bounded = @moonbit_sat.maxsat_oll_result(w, 50)               // 带轮预算，不收敛时带回界
 ```
+
+`maxsat_oll_result` 在预算内收敛返回 `Solved`，硬子句不可满足返回 `Infeasible`，预算用尽返回 `Budgeted(下界, 上界)`——`rounds <= 0` 表示不限。20×20 加权网格（总软权重 40000）给 20 轮，不到 10 ms 就返回 `lower= 2000 upper= 40000`，不再无限跑下去。
 
 ## CLI
 
@@ -151,6 +154,7 @@ moon run cmd/main -- verify-maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0 "$(c
 moon run cmd/main -- maxsat-verify "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"          # 上界赋值 + 下界证明一起验
 moon run cmd/main -- maxsat-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"        # 最优赋值 + 复算代价
 moon run cmd/main -- maxsat-oll "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"             # 核心引导，总软权重无上限
+moon run cmd/main -- maxsat-oll-budget "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 50   # 同上，加轮预算：不收敛时打印上下界
 moon run cmd/main -- verify-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 1 "v 1 -2 0"   # 只核对导出的赋值
 ```
 
@@ -175,7 +179,7 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 
 ## 正确性证据
 
-`moon test` 共 77 个测试，其中 12 类是硬证据：
+`moon test` 共 80 个测试，其中 13 类是硬证据：
 
 1. **与暴力枚举对拍**：80 轮随机 3–5 变量公式，CDCL 的 SAT/UNSAT 结论与真值表枚举逐一比对，SAT 时还验证模型确实满足每条子句。
 2. **证明自校验**：对随机 UNSAT 实例生成 DRAT 证明，再用 `verify_proof` 逐条 RUP 复算；同时有反例测试，确认非 RUP 步骤与缺失空子句都会被拒绝。
@@ -189,10 +193,11 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 10. **证明文本容错**：注释行（`c` / `s` / `o` 开头）被跳过而不是当成子句，把命令行打印的 `s` 与 `c …` 统计原样回喂给 `verify` 仍得到 `s VERIFIED`；只含注释的文本得到 `s PROOF-REJECTED`，不是崩溃。0.6.4 之前这里会 abort，三个测试守着。
 11. **外部检查器交叉验证**：鸽巢 3–9 洞与三个加权实例的最优性下界共 10 个案例，交给 `drat-trim` 与 `lrat-check`（与本项目无共享代码的两个 C 检查器）复算，全部 `s VERIFIED` / `c VERIFIED`，且全部是 0 RAT 引理的纯 DRUP 证明。`BIG=1 bash tools/crosscheck.sh` 再追加鸽巢 10/9（295345 行，`drat-trim` 约 17s）与 20×20 网格下界（8622 行），12 个案例同样全绿。见 [docs/crosscheck.md](docs/crosscheck.md)。
 12. **核心引导不受总软权重限制**：加权 Petersen（每条 100，总 1000）在 `maxsat` 上直接抛出上限错误，`maxsat-oll` 给出 `o 600`，同一实例把权重降到 1 走编码路径也得 6；另有「同一条软子句被两个 core 命中不重复收费」「单个昂贵 core 计费到 1001」「硬子句不可满足返回 `None`」等结构化用例，以及 4×5 网格（总 2000）→ `o 1000`。
+13. **核心引导有预算出口，且不只对图形态有效**：20×20 加权网格给 20 轮预算，不到 10 ms 就返回 `lower= 2000 upper= 40000`（不设预算会一直跑），预算超过自然长度时与无预算结果一致、`rounds <= 0` 表示不限；另有一个三条三元超边的加权超图实例（软子句与图的边无关）与编码路径对拍，`o 200` 且模型成本按 WCNF 复算一致。
 
 ```bash
 moon check --deny-warn   # 0 warnings
-moon test                # 77 passed
+moon test                # 80 passed
 ```
 
 ## 基准
@@ -235,7 +240,7 @@ native release 下实测，证明行数在改造前后完全相同：
 ## 范围边界
 
 - 求解器只输出 **RUP** 步骤（CDCL 学习子句天然满足），不构造 RAT 步骤；检查器另有 RUP + RAT 模式（`verify-rat`），用于校验外部工具产出的证明。外部检查器复算这 10 个案例时统计到 **0 RAT 引理**，与这条边界一致。
-- `maxsat_solve` 用权重展开 + Sinz 编码，**总软权重**有上限（由调用方给出，示例 512），超出会明确报错而非静默降级；`maxsat_oll` 走核心引导，不建基数编码，所以没有这个上限。代价是均匀权重下每轮只推进一层，因此总软权重 ≤ 512 时它也自动改走编码路径（结果一致），超过 512 才真正跑 core 循环。
+- `maxsat_solve` 用权重展开 + Sinz 编码，**总软权重**有上限（由调用方给出，示例 512），超出会明确报错而非静默降级；`maxsat_oll` 走核心引导，不建基数编码，所以没有这个上限。代价是均匀权重下每轮只推进一层，因此总软权重 ≤ 512 时它也自动改走编码路径（结果一致），超过 512 才真正跑 core 循环。不设轮预算时不收敛的实例会一直跑，`maxsat_oll_result` 用轮预算换一个有界出口：可能只拿回上下界，而不是最优值。
 - MaxSAT 最优性的上界只是「该赋值代价恰为 `opt`」，单独看不能排除更低的代价；与 `opt-1` 不可达的证明合起来才闭合最优性，所以 `maxsat-verify` 两端都要过。
 - MaxSAT 最优性证明是对**扩展后的 CNF**（含 select 变量与 Sinz 计数变量）给出的，校验方必须用库内同一个 `maxsat_encoding` 重建公式。所以准确的说法是「可复算」而不是「不看编码也能独立验」；编码器是公开源码，不存在黑箱。这一点在 `docs/proof.md` 里单独说明。
 - 最优性证明只覆盖「`k` 不可达」，不导出「`k` 可达」的模型。

@@ -2,7 +2,7 @@
 
 对应验收条「工作有效：本期有实质新增」。这里只列十一月一日起进仓库的东西，按能力而非按提交排列；每条都给出可核对的位置。
 
-## 从 0.5.0 到 0.6.9
+## 从 0.5.0 到 0.7.0
 
 | 能力 | 版本 | 之前的状态 | 现在的状态 | 可核对处 |
 | --- | --- | --- | --- | --- |
@@ -15,18 +15,19 @@
 | 更大实例 | 0.6.6 | 最大 100 变量 | 20×20 网格（400 变量）`o 200`，König 定理独立佐证；鸽巢 k=10 的 295345 行证明经 `drat-trim` 与 `lrat-check` 复算 | `docs/benchmarks.md`「规模上限」 |
 | 检查器吞吐 | 0.5.0 | 逐条全池扫描，k=9 校验 32.56s | 两文字监听（5.96s）；0.6.7 摊平子句池后 k=9 2.5s、k=10 196s→127s | `docs/proof.md`、`CHANGELOG.md` |
 | 加权 MaxSAT 无总权重上限 | 0.6.8 | 总软权重超过 `weight_cap` 直接抛错 | 核心引导 `maxsat_oll`：core 驱动下界 + 阻塞式上界，不建基数编码；权重 100 的 Petersen 7ms 得 `o 600`，同一实例 `maxsat` 抛上限错误 | `maxsat.mbt`、`maxsat_oll_wbtest.mbt`、`docs/api.md` |
+| 核心引导可设轮预算 | 0.7.0 | 不收敛的实例只能干等，没有任何出口 | `maxsat_oll_result(w, rounds)` 返回 `Solved` / `Infeasible` / `Budgeted(下界, 上界)`；20×20 加权网格给 20 轮在 不到 10ms 就返回 `lower= 2000 upper= 40000`；另有一个三条三元超边的加权超图实例与编码路径对拍（`o 200`），覆盖不是顶点覆盖的形态 | `maxsat.mbt`、`maxsat_oll_wbtest.mbt`、`cmd/main/main.mbt`、`docs/usage.md` |
 
 ## 量化
 
-- 测试：37 → 77，wasm / js / native 同结果，`moon check --deny-warn` 零告警。
-- 命令：8 → 16 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`maxsat-oll`、`verify-solution`）。
+- 测试：37 → 80，wasm / js / native 同结果，`moon check --deny-warn` 零告警。
+- 命令：8 → 17 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`maxsat-oll`、`maxsat-oll-budget`、`verify-solution`）。
 - 文档：`docs/` 共 11 篇（新增 `benchmarks.md`、`proof.md`、`november.md`、`reproduce.md`、`crosscheck.md`、`申报书.md`）。
-- 提交：十一月一日至二十二日截至 0.6.9 发布共 84 次（0.6.7 发布前 78 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
-- 发布：Mooncakes 0.5.0 → 0.6.9，每次 `build=success`（0.6.8 已在 registry 显示 `latest_version` 为 0.6.8），0.6.4 起每个版本都有 tag 与 GitHub Release。
+- 提交：十一月一日至二十三日截至 0.7.0 发布共 86 次（0.6.7 发布前 78 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
+- 发布：Mooncakes 0.5.0 → 0.7.0，每次 `build=success`（0.6.9 已在 registry 显示 `latest_version` 为 0.6.9），0.6.4 起每个版本都有 tag 与 GitHub Release。
 
 ## 没有做到的
 
-- 核心引导路径在均匀权重的大图上按层推进，每轮一层：20×20 加权网格没有跑完，大均匀权重实例仍应走编码路径。
+- 核心引导路径在均匀权重的大图上按层推进，每轮一层：20×20 加权网格仍没有跑到收敛，只能靠轮预算带界返回（`lower= 2000 upper= 40000`）；大均匀权重实例仍应走编码路径。
 - 没有与 SAT Competition 的官方证明集对拍：那些证明由别的求解器产生，属于「用本项目检查器读外部证明」，与「外部工具验本项目证明」是两件事。
 - 检查器 k=10（295345 行）校验 127s，仍比 `drat-trim` 慢约 7 倍，瓶颈在传播调度。
 - 最大实例 400 变量（20×20 网格；鸽巢 k=10 是 90 变量、295345 行证明），未与工业求解器同数据集比较。

@@ -2,6 +2,21 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.7.0
+
+### 新增
+
+- `maxsat_oll_result(w, max_rounds) -> OllOutcome`：给核心引导一个轮预算。`Solved(赋值, 代价)` 表示收敛；`Infeasible` 表示硬子句本身不可满足；`Budgeted(下界, 上界)` 表示预算用尽——下界只由 core 推进，上界从总软权重起步、每找到一个模型就下降，两者之差就是剩余缺口。`max_rounds <= 0` 表示不限。一轮是一次核心查询加记账，对同一输入是确定的，不是墙钟时限。
+- CLI 新增 `maxsat-oll-budget <wcnf> <rounds>`：收敛时输出 `o` / `v` / `s SOLUTION-VERIFIED`，预算用尽时输出 `c rounds= … lower= … upper= …` 与 `s UNKNOWN (round budget exhausted)`。
+- 总软权重 40000 的 20×20 加权网格给 20 轮，不到 10 ms 就返回 `lower= 2000 upper= 40000`；同一实例不设预算会一直跑下去。
+
+### 测试
+
+- 新增三条：预算用尽返回 `Budgeted` 且上下界不闭合、预算超过自然轮数时与无预算结果一致、`rounds <= 0` 视为不限。
+- 新增一个三条三元超边的加权超图实例（硬子句长度 3、软子句为单元），与编码路径等比缩放对拍得 `o 200`，模型成本按 WCNF 复算一致——此前核心引导的用例全是图上的二元边，这是第一个非该形态的实例。
+
+测试 77 → 80，`moon check --deny-warn` 零告警，12 个外部案例的结论不变。
+
 ## 0.6.9
 
 ### 文档

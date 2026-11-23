@@ -105,6 +105,7 @@
 | `maxsat_model` | `(w : Wcnf, weight_cap : Int) -> (Array[Bool], Int)?` | 同上但不抛异常：超权重上限也返回 `None`，首次调用不必写 `try` |
 | `maxsat_oll` | `(w : Wcnf) -> Int` | 核心引导的最优代价，没有总权重上限；硬子句 UNSAT 返回 `-1` |
 | `maxsat_oll_solution` | `(w : Wcnf) -> (Array[Bool], Int)?` | 同上并给出赋值；硬子句 UNSAT 返回 `None` |
+| `maxsat_oll_result` | `(w : Wcnf, max_rounds : Int) -> OllOutcome` | 带轮预算的核心引导：`Solved(赋值, 代价)` / `Infeasible` / `Budgeted(下界, 上界)`；`max_rounds <= 0` 表示不限 |
 | `maxsat_model_cost` | `(w : Wcnf, model : Array[Bool]) -> Int` | 按 WCNF 原文复算代价，硬子句被破坏返回 `-1` |
 | `verify_maxsat_solution` | `(w : Wcnf, model : Array[Bool], claimed_cost : Int) -> Bool` | 声称的代价与复算结果是否一致 |
 
@@ -113,6 +114,8 @@
 `maxsat_solve` 的二分区下端点由 `maxsat_core_bound` 起步：既然某个 core 里最便宜的一条必然被违反，比它更小的代价不可能达到，这部分判定可以直接跳过。0.6.8 起 `maxsat_oll` 补上完整核心引导：每轮取一个 core，按 `wmin` 记账，core 内每条软子句饱和这一层、剩余权重建新松弛文字，同一条子句被多个 core 命中也不重复收费；下界只增，同时把模型违反的软子句写成阻塞子句收紧上界，两界相接才收尾。它不建基数编码，因此没有 `weight_cap`。总软权重 ≤ 512 时会自动改走编码路径——均匀小权重大图上编码更快，结果一致。
 
 `Wcnf` 的字段 `num_vars`、`top`、`hard`、`soft`、`weights` 可直接读取，便于调用方检查解析结果。
+
+0.7.0 起核心引导可以设轮预算：`maxsat_oll_result(w, max_rounds)` 在预算内收敛时返回 `Solved`，硬子句本身不可满足返回 `Infeasible`，预算用尽返回 `Budgeted(lower, upper)`——下界只由 core 推进，上界从总软权重起步、每找到一个模型就下降，两者之差就是还差多少。一轮是一次 `solve_core` 加记账，对同一输入是确定性的，不是墙钟时限。均匀权重的大图上这条路径按层推进，20×20 加权网格给 20 轮预算会在 不到 10 ms 就返回 `lower= 2000 upper= 40000`，而不是无限跑下去。
 
 ## 命令行
 
@@ -127,6 +130,7 @@ moon run cmd/main -- verify-maxsat "<WCNF 文本>" <k> "<DRAT 文本>"
 moon run cmd/main -- maxsat-verify "<WCNF 文本>"
 moon run cmd/main -- maxsat-solution "<WCNF 文本>"
 moon run cmd/main -- maxsat-oll "<WCNF 文本>"
+moon run cmd/main -- maxsat-oll-budget "<WCNF 文本>" <rounds>
 moon run cmd/main -- verify-solution "<WCNF 文本>" <cost> "<lits，如 1 -2 3 0>"
 ```
 

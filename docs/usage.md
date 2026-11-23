@@ -146,6 +146,26 @@ let pair = @moonbit_sat.maxsat_oll_solution(w)           // Some((赋值, 代价
 ```
 moon run cmd/main -- maxsat-oll "<WCNF 文本>"
 ```
+
+### 给核心引导加轮预算
+
+均匀权重的大图上核心引导按层推进，轮数与最优值同量级，可能长时间不返回。`maxsat_oll_result(w, max_rounds)` 给一个轮数上限：
+
+```moonbit
+match @moonbit_sat.maxsat_oll_result(w, 50) {
+  Solved(model, cost) => println("opt = \{cost}")
+  Infeasible => println("hard clauses unsat")
+  Budgeted(lower, upper) => println("at least \{lower}, at most \{upper}, not closed")
+}
+```
+
+`max_rounds <= 0` 表示不设预算。`Budgeted` 同时给出已证明的下界与当前最好模型的上界，二者之差就是还剩多少要收；一轮是一次核心查询加记账，同一输入的轮数是确定的，不是墙钟时限。命令行对应 `maxsat-oll-budget "<WCNF>" <rounds>`：
+
+```
+c rounds= 20 lower= 2000 upper= 40000
+s UNKNOWN (round budget exhausted)
+```
+
 ### 变量编号约定
 
 - DIMACS 文本里的变量从 1 开始，负号表示否定。
@@ -166,6 +186,7 @@ moon run cmd/main -- maxsat-cnf  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0
 moon run cmd/main -- verify-maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0 "<DRAT 文本>"
 moon run cmd/main -- maxsat-verify "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 moon run cmd/main -- maxsat-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
+moon run cmd/main -- maxsat-oll-budget "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 50
 moon run cmd/main -- verify-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 1 "v 1 -2 0"
 moon run cmd/main -- bench
 moon run cmd/main -- bench-verify 9
@@ -189,6 +210,7 @@ moon run cmd/main -- bench-verify 9
 | `maxsat-verify` | `o <成本>` + `c upper= <bool> lower= <bool>` + `s OPTIMALITY-VERIFIED`（上界赋值与 `opt-1` 的下界证明都要过） |
 | `maxsat-solution` | `o <成本>` + `v <文字> 0` + `s SOLUTION-VERIFIED`；硬子句 UNSAT 时 `s UNSATISFIABLE (hard clauses)` |
 | `maxsat-oll` | 同 `maxsat-solution`，但走核心引导且没有总权重上限 |
+| `maxsat-oll-budget <rounds>` | 收敛时同 `maxsat-oll`；预算用尽时 `c rounds= … lower= … upper= …` + `s UNKNOWN (round budget exhausted)` |
 | `verify-solution` | `s SOLUTION-VERIFIED` 或 `s SOLUTION-REJECTED`（按 WCNF 重算给定的代价与赋值） |
 | `bench` | 五行 `c bench vars=… clauses=… result=… decisions=… propagations=… conflicts=… minimised=…` |
 | `bench-verify <k>` | `c verify k=… vars=… proof_lines=… sat=… result=VERIFIED` 或 `… REJECTED` |
