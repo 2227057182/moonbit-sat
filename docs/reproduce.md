@@ -174,6 +174,6 @@ Ubuntu 云主机、native release、单次运行（含进程启动）：
 | `maxsat-verify` Petersen、4×5 网格、scheduling | 6 ms |
 | `maxsat-verify` 10×10 网格（100 变量） | 347 ms |
 | `bench-verify 9` | 约 6 s |
-| `bench-verify 10` | 约 350 s（见 `docs/roadmap.md` 的结构性瓶颈） |
+| `bench-verify 10` | 约 280 s；旧记录 350 s（机器不同，见 `docs/benchmarks.md`「0.7.3 同机复跑」） |
 
 数字随机器浮动，量级应当一致。

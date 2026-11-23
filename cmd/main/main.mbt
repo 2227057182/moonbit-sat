@@ -150,13 +150,36 @@ fn parse_assumptions(text : String) -> Array[@lib.Lit] {
 ///|
 fn parse_uint(text : String) -> Int {
   let mut acc = 0
+  let mut any = false
   for c in text {
     let code = c.to_int()
-    if code >= 48 && code <= 57 {
-      acc = acc * 10 + (code - 48)
+    if code < 48 || code > 57 {
+      // A non-digit makes the argument ambiguous.  Returning -1 lets the caller
+      // reject it; the old version skipped the character and read e.g. "abc" as 0.
+      return -1
     }
+    acc = acc * 10 + (code - 48)
+    any = true
   }
-  acc
+  if any {
+    acc
+  } else {
+    -1
+  }
+}
+
+///|
+/// Print the reason a WCNF instance cannot be optimised, and report whether the
+/// caller should stop.  Kept next to `parse_uint` because both exist to turn
+/// silent mis-reads into messages.
+fn wcnf_ok_or_report(w : @lib.Wcnf) -> Bool {
+  match @lib.wcnf_error(w) {
+    Some(e) => {
+      println("c error: \{e}")
+      false
+    }
+    None => true
+  }
 }
 
 ///|
@@ -357,6 +380,9 @@ fn main {
         return
       }
       let w = @lib.parse_wcnf(wcnf_text)
+      if !wcnf_ok_or_report(w) {
+        return
+      }
       let opt = @lib.maxsat_solve(w, 512)
       if opt < 0 {
         println("s UNSATISFIABLE (hard clauses)")
@@ -377,7 +403,14 @@ fn main {
       return
     }
     let w = @lib.parse_wcnf(wcnf_text)
+      if !wcnf_ok_or_report(w) {
+        return
+      }
     let k = parse_uint(args[3])
+    if k < 0 {
+      println("c error: expected a non-negative integer, got \{args[3]}")
+      return
+    }
     println(@lib.to_dimacs(@lib.maxsat_encoding(w, k)))
   } else if cmd == "maxsat-proof" {
     if args.length() < 4 {
@@ -385,7 +418,14 @@ fn main {
       return
     }
     let w = @lib.parse_wcnf(decode(args[2]))
+      if !wcnf_ok_or_report(w) {
+        return
+      }
     let k = parse_uint(args[3])
+    if k < 0 {
+      println("c error: expected a non-negative integer, got \{args[3]}")
+      return
+    }
     match @lib.maxsat_bound_proof(w, k) {
       Some(p) => {
         println("s UNSATISFIABLE (cost <= \{k} unreachable)")
@@ -399,13 +439,23 @@ fn main {
       return
     }
     let w = @lib.parse_wcnf(decode(args[2]))
+      if !wcnf_ok_or_report(w) {
+        return
+      }
     let k = parse_uint(args[3])
+    if k < 0 {
+      println("c error: expected a non-negative integer, got \{args[3]}")
+      return
+    }
     let proof = decode(args[4])
     let ok = @lib.verify_maxsat_bound(w, k, proof)
     println(if ok { "s VERIFIED" } else { "s PROOF-REJECTED" })
   } else if cmd == "maxsat-verify" {
     try {
       let w = @lib.parse_wcnf(decode(args[2]))
+      if !wcnf_ok_or_report(w) {
+        return
+      }
       let opt = @lib.maxsat_solve(w, 512)
       if opt < 0 {
         println("s UNSATISFIABLE (hard clauses)")
@@ -440,6 +490,9 @@ fn main {
       return
     }
     let w = @lib.parse_wcnf(wcnf_text)
+      if !wcnf_ok_or_report(w) {
+        return
+      }
     match @lib.maxsat_oll_solution(w) {
       Some((model, cost)) => {
         let mut text = ""
@@ -468,7 +521,14 @@ fn main {
       return
     }
     let w = @lib.parse_wcnf(wcnf_text)
+      if !wcnf_ok_or_report(w) {
+        return
+      }
     let rounds = parse_uint(args[3])
+    if rounds < 0 {
+      println("c error: expected a non-negative integer, got \{args[3]}")
+      return
+    }
     match @lib.maxsat_oll_result(w, rounds) {
       Solved(model, cost) => {
         let mut text = ""
@@ -494,6 +554,9 @@ fn main {
   } else if cmd == "maxsat-solution" {
     try {
       let w = @lib.parse_wcnf(decode(args[2]))
+      if !wcnf_ok_or_report(w) {
+        return
+      }
       match @lib.maxsat_solution(w, 512) {
         Some((model, cost)) => {
           let mut text = ""
@@ -520,7 +583,14 @@ fn main {
       println("c usage: verify-solution <wcnf> <cost> <lits like \"1 -2 3 0\">")
     } else {
       let w = @lib.parse_wcnf(decode(args[2]))
+      if !wcnf_ok_or_report(w) {
+        return
+      }
       let cost = parse_uint(args[3])
+      if cost < 0 {
+        println("c error: expected a non-negative integer, got \{args[3]}")
+        return
+      }
       let model = parse_model(decode(args[4]), w.num_vars)
       println(if @lib.verify_maxsat_solution(w, model, cost) {
         "s SOLUTION-VERIFIED"
@@ -575,18 +645,10 @@ fn main {
   } else if cmd == "bench" {
     run_bench()
   } else if cmd == "bench-verify" {
-    let k = if args[2] == "6" {
-      6
-    } else if args[2] == "7" {
-      7
-    } else if args[2] == "8" {
-      8
-    } else if args[2] == "9" {
-      9
-    } else if args[2] == "10" {
-      10
-    } else {
-      8
+    let k = parse_uint(args[2])
+    if k < 6 || k > 10 {
+      println("c error: bench-verify expects k in 6..10, got \{args[2]}")
+      return
     }
     run_bench_verify(k)
   } else {

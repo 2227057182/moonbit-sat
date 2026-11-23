@@ -6,6 +6,7 @@ pub struct Wcnf {
   hard : Array[Array[Lit]]
   soft : Array[Array[Lit]]
   weights : Array[Int]
+  header_ok : Bool
 }
 
 ///|
@@ -14,6 +15,7 @@ pub struct Wcnf {
 pub fn parse_wcnf(text : String) -> Wcnf {
   let mut num_vars = 0
   let mut top = 0
+  let mut header_ok = false
   let hard : Array[Array[Lit]] = []
   let soft : Array[Array[Lit]] = []
   let weights : Array[Int] = []
@@ -29,7 +31,10 @@ pub fn parse_wcnf(text : String) -> Wcnf {
       let ints = scan_ints(line)
       if ints.length() >= 2 {
         num_vars = ints[0]
-        top = if ints.length() >= 3 { ints[2] } else { ints[1] }
+      }
+      if ints.length() >= 3 && ints[2] > 0 {
+        top = ints[2]
+        header_ok = true
       }
       continue
     }
@@ -58,9 +63,30 @@ pub fn parse_wcnf(text : String) -> Wcnf {
       weights.push(weight)
     }
   }
-  { num_vars : num_vars, top : top, hard : hard, soft : soft, weights : weights }
+  { num_vars : num_vars, top : top, hard : hard, soft : soft, weights : weights, header_ok : header_ok }
 }
 
+///|
+/// Why this instance cannot be optimised, or `None` when it is well formed.
+/// A WCNF file without `p wcnf <vars> <clauses> <top>` (with a positive top)
+/// cannot say which clauses are hard, and a negative weight has no meaning in
+/// the cost model; both used to be accepted silently and then either mis-read
+/// the instance or drive the encoder into an invalid range.
+pub fn wcnf_error(w : Wcnf) -> String? {
+  if !w.header_ok {
+    return Some(
+      "WCNF header must be `p wcnf <vars> <clauses> <top>` with a positive top",
+    )
+  }
+  let mut i = 0
+  while i < w.weights.length() {
+    if w.weights[i] < 0 {
+      return Some("WCNF soft weight \{w.weights[i]} is negative")
+    }
+    i = i + 1
+  }
+  None
+}
 ///|
 /// Sinz sequential-counter encoding of `sum(xs) <= k`, written into a formula.
 /// Variables are handed out from `start` in a fixed order and the first free
@@ -126,6 +152,12 @@ fn add_at_most_k_formula(
 /// exported lower-bound proof checkable against a freshly rebuilt encoding.
 pub fn maxsat_encoding(w : Wcnf, k : Int) -> Formula {
   let f = Formula::new(w.num_vars)
+  if k < 0 {
+    // `cost <= k` with a negative k is unsatisfiable; say so with the empty
+    // clause instead of handing a negative budget to the counter encoding.
+    f.add([]) |> ignore
+    return f
+  }
   for c in w.hard {
     f.add(c) |> ignore
   }
@@ -332,6 +364,9 @@ pub fn maxsat_model(w : Wcnf, weight_cap : Int) -> (Array[Bool], Int)? {
 pub fn maxsat_solve(w : Wcnf, weight_cap : Int) -> Int raise {
   let mut total = 0
   for wt in w.weights {
+    if wt < 0 {
+      fail("WCNF soft weight \{wt} is negative")
+    }
     total = total + wt
   }
   if total > weight_cap {

@@ -50,6 +50,8 @@ pub fn verify_proof(Formula, String) -> Bool
 
 pub fn verify_proof_rat(Formula, String) -> Bool
 
+pub fn wcnf_error(Wcnf) -> String?
+
 // Errors
 
 // Types and methods
@@ -152,6 +154,7 @@ pub struct Wcnf {
   hard : Array[Array[Int32]]
   soft : Array[Array[Int32]]
   weights : Array[Int32]
+  header_ok : Bool
 }
 
 // Type aliases

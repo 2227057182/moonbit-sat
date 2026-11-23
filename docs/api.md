@@ -95,7 +95,8 @@
 
 | 接口 | 签名 | 说明 |
 | --- | --- | --- |
-| `parse_wcnf` | `(text : String) -> Wcnf` | 解析 `p wcnf V C TOP` 格式；权重 ≥ TOP 为硬子句 |
+| `parse_wcnf` | `(text : String) -> Wcnf` | 解析 `p wcnf V C TOP` 格式；权重 ≥ TOP 为硬子句。宽容版本：不检查 header 与权重符号，配合 `wcnf_error` 使用 |
+| `wcnf_error` | `(w : Wcnf) -> String?` | 实例能否被优化：缺 header、缺 TOP、软权重为负时给出原因，合法时返回 `None` |
 | `maxsat_solve` | `(w : Wcnf, weight_cap : Int) -> Int raise` | 返回最小软代价；硬子句 UNSAT 时返回 `-1`；总软权重超过 `weight_cap` 时抛出异常 |
 | `maxsat_core_bound` | `(w : Wcnf) -> Int` | 一个 unsat core 给出的代价下界（core 中最便宜的软子句必然被违反）；硬子句 UNSAT 返回 `-1`，软子句可全满足返回 `0` |
 | `maxsat_encoding` | `(w : Wcnf, k : Int) -> Formula` | 「软代价 ≤ `k` 是否可行」对应的 CNF；确定性构造，同参数必得同公式 |
@@ -113,7 +114,7 @@
 
 `maxsat_solve` 的二分区下端点由 `maxsat_core_bound` 起步：既然某个 core 里最便宜的一条必然被违反，比它更小的代价不可能达到，这部分判定可以直接跳过。0.6.8 起 `maxsat_oll` 补上完整核心引导：每轮取一个 core，按 `wmin` 记账，core 内每条软子句饱和这一层、剩余权重建新松弛文字，同一条子句被多个 core 命中也不重复收费；下界只增，同时把模型违反的软子句写成阻塞子句收紧上界，两界相接才收尾。它不建基数编码，因此没有 `weight_cap`。总软权重 ≤ 512 时会自动改走编码路径——均匀小权重大图上编码更快，结果一致。
 
-`Wcnf` 的字段 `num_vars`、`top`、`hard`、`soft`、`weights` 可直接读取，便于调用方检查解析结果。
+`Wcnf` 的字段 `num_vars`、`top`、`hard`、`soft`、`weights` 可直接读取，便于调用方检查解析结果；`header_ok` 记录是否真的读到了带正 TOP 的 `p wcnf` 头（命令行用它决定拒绝还是继续）。
 
 0.7.0 起核心引导可以设轮预算：`maxsat_oll_result(w, max_rounds)` 在预算内收敛时返回 `Solved`，硬子句本身不可满足返回 `Infeasible`，预算用尽返回 `Budgeted(lower, upper)`——下界只由 core 推进，上界从总软权重起步、每找到一个模型就下降，两者之差就是还差多少。一轮是一次 `solve_core` 加记账，对同一输入是确定性的，不是墙钟时限。均匀权重的大图上这条路径按层推进，20×20 加权网格给 20 轮预算会在 不到 10 ms 就返回 `lower= 2000 upper= 40000`，而不是无限跑下去。
 

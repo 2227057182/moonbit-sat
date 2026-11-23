@@ -85,6 +85,8 @@ cadical --binary=false php-6.cnf php-6.drat
 
 同一份证明交给三家：
 
+`--binary=false` 不是可选项：本项目的 `verify` 与 `verify-rat` 只解析 ASCII DRAT，CaDiCaL 默认写二进制；二进制文件会被读成杂乱的小子句集并判 `PROOF-REJECTED`，而不是报格式错误。
+
 | 检查器 | 结果 |
 | --- | --- |
 | 本项目 `verify`（只认 RUP） | `s VERIFIED` |

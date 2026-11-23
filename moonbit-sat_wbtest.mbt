@@ -333,6 +333,7 @@ test "maxsat agrees with brute force" {
       hard : [],
       soft : [],
       weights : [],
+      header_ok : true,
     }
     seed = lcg(seed)
     let hl = 1 + seed % 2

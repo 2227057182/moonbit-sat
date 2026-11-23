@@ -4,6 +4,13 @@
 
 ## 0.7.3
 
+### 输入面（会改变行为）
+
+- 负权重 WCNF 以前让 `maxsat` / `maxsat-oll` 直接 abort（exit 134，无输出）：负权重让总软权重变小，二分把负预算交给计数编码，最终在 `s_vars[0][0]` 越界。现在解析后由新的 `wcnf_error` 报出 `WCNF soft weight -5 is negative`；`maxsat_solve` 对负权重 `raise`，`maxsat_encoding` 对 `k < 0` 直接返回空子句。
+- 缺少 `p wcnf <vars> <clauses> <top>`、或 header 缺 TOP 的实例，以前 `top` 回落成 0 或子句数，所有软子句被当硬子句、结论被静默改判。现在同样在解析后拒绝。
+- 命令行整数参数（`maxsat-cnf` / `maxsat-proof` / `verify-maxsat` 的 k、`maxsat-oll-budget` 的轮数、`verify-solution` 的代价）遇到非数字以前读成 0（`rounds=0` 就是「不限轮」），现在报错。`bench-verify` 的 k 超出 6..10 以前静默回落到 8，现在报错。
+- 新增 5 个测试（`wcnf_guard_wbtest.mbt`）：合法实例无错、无 header、缺 TOP、负权重（含库层面抛错）、负 k 不可满足。测试 82 → 87。
+
 ### 接口文件
 
 - `pkg.generated.mbti` 重新生成。0.7.0 就公开了的 `maxsat_oll`、`maxsat_oll_result`、`maxsat_oll_solution` 和 `OllOutcome` 一直没写进这份生成文件，外部按它看会漏掉三个函数与一个枚举。
@@ -13,7 +20,9 @@
 - `docs/proof.md` 新增「RUP 复算为什么改不动数字」：k=9 证明的逐次计数（27102 次检查、9881 万次监听访问、4335 万次监听搬家）、四种监听表存法的同机对照、以及为什么真正的方向是裁剪式复算。
 - `docs/roadmap.md`：校验器提速从待做改为「已评估，结构改动不动数字」，新增「裁剪式复算」条目。
 
-没有求解器、检查器、API 或 CLI 的行为变更。## 0.7.2
+求解器与检查器本身的行为没有改变（同一公式、同一证明结论相同），变的是输入面的拒绝方式。共 9 处 WCNF 检查与 5 处整数参数检查，`moon check --deny-warn` 零告警、87 个测试全过。
+
+## 0.7.2
 
 ### 文档
 

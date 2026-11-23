@@ -194,6 +194,8 @@ moon run cmd/main -- bench-verify 9
 
 参数中的 `;` 等价于换行，公式直接内联，不需要临时文件（MoonBit core 目前没有文件系统模块）。直接传文件路径会被挡下并提示 `"$(cat file)"` 的写法，避免把路径里的数字当成公式、静默给出错误结论。
 
+输入不合法时不再静默给结论，而是打印一行 `c error: …` 并以 0 退出：WCNF 缺少 `p wcnf <vars> <clauses> <top>`（或 top 不为正）、软权重为负、整数参数里含非数字、`bench-verify` 的 k 不在 6..10，都会这样被挡下。
+
 输出遵循 SAT 竞赛的惯用格式：
 
 | 子命令 | 输出 |
@@ -231,6 +233,8 @@ moon run cmd/main -- bench-verify 9
 库与命令行都不做文件 IO，因为 MoonBit core 当前没有 fs 模块。需要读文件时，在调用方读入文本再传给 `parse_dimacs` / `parse_wcnf`。
 
 **为什么大证明要用 `bench-verify` 而不是 `verify`？**
+检查器只解析 ASCII DRAT（每行一条子句）。二进制 DRAT（CaDiCaL 的默认二进制输出）需要先转成文本，例如 `cadical --binary=false`；直接喂二进制会被读成杂乱的小子句集并判 `PROOF-REJECTED`，而不是报格式错误。
+
 操作系统对单个命令行参数有上限（Linux 128KB、Windows 约 32KB），一万行的证明就会 `Argument list too long`。`bench-verify <k>` 在同一进程里构造 `k` 鸽 `k-1` 洞实例、求解、取证明、校验并打印行数，不经过命令行。检查外部文件时走库 API `verify_proof(formula, text)`，把文本读进来再传即可。
 
 **为什么没有并行和变量消除？**
