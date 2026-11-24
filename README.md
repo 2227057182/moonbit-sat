@@ -203,6 +203,8 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 16. **最优性两端都可以来自外部**：CaDiCaL 3.1.0 产出的赋值与 DRAT 交给 `maxsat-verify-external`，Petersen 与 10×10 网格都输出 `s OPTIMALITY-VERIFIED`；翻转赋值只坏上界、删掉空子句只坏下界、把 `opt` 报大两端全假。三个测试。
 17. **删掉的子句会把内存还回来**：归约后每条死子句的文字数组长度为 0，8 鸽 7 洞（会触发归约）在空壳子句库上仍判 UNSAT；同一实例的决策、传播、冲突与改动前逐位相同，php-10 峰值 RSS 112.4 → 92.3 MB。两个测试，数据见 [docs/benchmarks.md](docs/benchmarks.md)「0.7.8 子句池回收」。
 
+上面的 17 类都在 `moon test` 里。仓库另有一份不在测试套件中的外部对拍：`tools/difftest.sh` 拿 CaDiCaL 3.1.0 当独立结论源，在 10 档随机 3-SAT（20–100 变量、1400 个实例）上比 SAT/UNSAT 结论，同时核对见证——SAT 的模型交 `tools/check_model.py` 逐子句验，UNSAT 的 DRAT 每档抽 10 个交 `drat-trim`。结果 1400/1400 一致、736 个模型全部满足、100 份证明全部 `s VERIFIED`，0 分歧 0 超时；数据与边界见 [docs/crosscheck.md](docs/crosscheck.md)「结论对拍」。
+
 ```bash
 moon check --deny-warn     # 0 warnings
 moon test                  # 95 passed

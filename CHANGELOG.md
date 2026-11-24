@@ -2,6 +2,16 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.7.10
+
+### 外部结论对拍（新增工具，求解器零改动）
+
+- 新增 `tools/difftest.sh`：以 CaDiCaL 3.1.0 为独立结论源，在 10 档随机 3-SAT（20–100 变量、共 1400 个实例，比例 4.26 与 5.00）上比对 SAT/UNSAT 结论，并核对见证。SAT 的 `v` 行交 `tools/check_model.py` 逐子句验证；UNSAT 的 DRAT 每档抽前 10 个交 `drat-trim`（664 个 UNSAT 共抽 100 个）。
+- 结果：1400/1400 结论一致，736 个 SAT 模型全部满足公式，100 份 UNSAT 证明全部 `s VERIFIED`，0 分歧、0 超时、0 坏见证（单实例 20 s 上限，超时单独计数且不算通过）。
+- 新增 `tools/gen3sat.py`（固定种子的随机 3-SAT 生成器）与 `tools/check_model.py`（纯 DIMACS 解析的模型校验，不依赖本项目任何代码）。
+- 边界写在 `docs/crosscheck.md`：只覆盖随机 3-SAT，证明只抽样，CaDiCaL 用默认参数。
+- 求解器、检查器与库接口零改动；`moon check --deny-warn` 零告警，`moon test` 95/95。
+
 ## 0.7.9
 
 ### 只重发文档（代码与包内容不变）
