@@ -2,7 +2,9 @@
 
 这一页只做一件事：让评审不用读完所有文档，就能把验收条目逐条核对一遍。每条给出**一条命令、一个预期输出、以及输出不符时意味着什么**。
 
-命令按 Linux/macOS（或 WSL）的 bash 写；在 Windows PowerShell 里，`| wc -l` 换成 `| Measure-Object -Line`，其余命令不变。
+嫌挨个复制太慢，可以直接跑可执行版：`bash tools/audit.sh` 一次跑完下面六组，逐条打 `PASS` / `FAIL` / `SKIP` 并在末尾给出 `audit: N passed, M failed, K skipped`。缺 C 编译器、没装 `cadical` 的机器记 `SKIP` 而不是 `FAIL`——那不是仓库的问题。`--full` 追加第三方检查器的交叉验证（要 `gcc` 与 `~/sat/thirdparty`）。下文仍然逐条给出命令与预期输出，因为「脚本说 PASS」和「我知道它为什么 PASS」是两件事。
+
+命令按 Linux/macOS（或 WSL）的 bash 写；在 Windows PowerShell 里，`| wc -l` 换成 `| Measure-Object -Line`，其余命令不变。`tools/audit.sh` 与 `tools/doccheck.sh` 是 bash 脚本，Windows 下用 Git Bash 或 WSL 跑。
 
 ## 前置（约 2 分钟）
 

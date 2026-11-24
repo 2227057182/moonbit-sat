@@ -45,6 +45,23 @@ moon build --target native
 
 一次提交只做一件事：加功能、补测试、写文档分开提交。这样做不是为了好看，而是让审阅者能单独回退某一类改动。
 
+## 口径自查
+
+文档里的数（测试数、版本号、`docs/` 篇数）与命令名，很容易在改代码时忘掉。提交前跑：
+
+```bash
+bash tools/doccheck.sh          # 命令名、版本号、测试数、篇数是否与源码一致
+bash tools/doccheck_selftest.sh # 确认 doccheck 本身还能抓错（3/3）
+```
+
+`doccheck` 在 `.githooks/pre-commit` 里，启用一次即可长期生效：
+
+```bash
+git config core.hooksPath .githooks
+```
+
+它的期望值全部从源码与仓库现读，脚本里不写死——写死了就是又一份要同步的数字。历史页（`CHANGELOG.md`、`docs/fixes.md`、`docs/november.md`）记录的是当时的事实，按原样保留，不参与判定；确实需要豁免的页面，把文件名加进脚本的排除名单，并在提交信息里说明原因。
+
 ## 边界声明
 
 以下限制是有意为之，改动它们需要先在 Issue 中讨论：

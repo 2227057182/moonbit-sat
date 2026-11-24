@@ -253,7 +253,7 @@ native release 下实测，证明行数在改造前后完全相同：
 | 9 | 72 | 40273 | 32.56s | 6.00s | 5.30s |
 | 10 | 90 | 295345 | — | 435s | 366s |
 
-检查器原先对每条新增子句都从头扫一遍整个池，行数 ×10 时耗时 ×50。改成两文字监听后，传播只沿被置假文字对应的监听列表走，k=9 提速 5.4 倍，结论仍是 `VERIFIED`。0.6.7 把子句池摊平成一维数组，端到端 k=9 从 6.00s 降到 5.30s、k=10 从 435s 降到 366s（其中求解约 239s，纯校验部分 196s → 127s）。同一条证明交给 `drat-trim` 只要约 17 s、`lrat-check` 约 0.7 s。0.7.4 同机复跑：端到端 277.5 s，其中求解 207.7 s、解析不到 1 s、纯校验约 70 s；上面的 239 s / 127 s 是旧机器记录，两者不能混用，慢的是检查器的传播调度，不是证明本身，见 [docs/benchmarks.md](docs/benchmarks.md) 的「规模上限」。
+检查器原先对每条新增子句都从头扫一遍整个池，行数 ×10 时耗时 ×50。改成两文字监听后，传播只沿被置假文字对应的监听列表走，k=9 提速 5.4 倍，结论仍是 `VERIFIED`。0.6.7 把子句池摊平成一维数组，端到端 k=9 从 6.00s 降到 5.30s、k=10 从 435s 降到 366s（其中求解约 239s，纯校验部分 196s → 127s）。同一条证明交给 `drat-trim` 只要约 17 s、`lrat-check` 约 0.7 s。0.7.4 同机复跑：端到端 277.5 s，其中求解 207.7 s、解析不到 1 s、纯校验约 70 s；上面的 239 s / 127 s 是旧机器记录，两者不能混用，慢的是检查器的传播调度，不是证明本身；四套计时的关系见 [docs/benchmarks.md](docs/benchmarks.md) 的「同一份 k=10 证明的四套计时」。
 
 ## 范围边界
 
@@ -273,7 +273,7 @@ native release 下实测，证明行数在改造前后完全相同：
 - [实现来源与合规](docs/origin.md)：算法出处、无第三方代码、许可证与校验独立性
 - [复现步骤](docs/reproduce.md)：从 clone 开始的八节证据与预期输出
 - [外部交叉验证](docs/crosscheck.md)：把证明交给 `drat-trim` 与 `lrat-check` 复算的结果
-- [本期新增](docs/november.md)：0.5.0 → 0.7.14 的实质变化与没做到的部分
+- [本期新增](docs/november.md)：0.5.0 → 0.7.16 的实质变化与没做到的部分
 - [路线图](docs/roadmap.md)：已完成与计划项
 - [修掉的缺陷](docs/fixes.md)：本季度真实出错的地方、怎么发现的、防复发靠什么
 - [基准与对比](docs/benchmarks.md)：顶点覆盖实例、已知最优的依据与实测耗时
@@ -288,6 +288,15 @@ moon check --deny-warn
 moon test
 moon run cmd/main -- solve "p cnf 2 1;1 2 0"
 ```
+
+提交前建议跑两条自查（都是 bash 脚本，Windows 下用 Git Bash 或 WSL）：
+
+```bash
+bash tools/doccheck.sh           # 文档里的命令名/版本号/测试数是否与源码一致
+bash tools/audit.sh              # docs/audit.md 那六组命令的可执行版，逐条 PASS/FAIL
+```
+
+`doccheck` 已挂在 `.githooks/pre-commit` 上（`git config core.hooksPath .githooks` 生效），口径不符的提交进不来。
 
 ## License
 

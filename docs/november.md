@@ -2,7 +2,7 @@
 
 对应验收条「工作有效：本期有实质新增」。这里只列十一月一日起进仓库的东西，按能力而非按提交排列；每条都给出可核对的位置。
 
-## 从 0.5.0 到 0.7.14
+## 从 0.5.0 到 0.7.16
 
 | 能力 | 版本 | 之前的状态 | 现在的状态 | 可核对处 |
 | --- | --- | --- | --- | --- |
@@ -24,9 +24,10 @@
 | 子句池回收 | 0.7.8 | 归约删掉的子句只标 `dead`，文字数组仍被引用，随冲突数线性累积（php-10 上死子句占 62%、死文字 315 万） | 标记的同时清空并释放文字数组，结果逐位不变，php-10 峰值 RSS 112.4 → 92.3 MB（-18%），时间无可归因变化；2 个新测试（93 → 95） | `solver.mbt`、`clause_pool_wbtest.mbt`、`docs/design.md`、`docs/benchmarks.md` |
 | 裁剪式复算的评估 | 0.7.5 | roadmap 记着「k=10 时 drat-trim 只验 172527 条」，把它当成与本检查器 4–7 倍差距的主要来源 | 用临时 reason 探针实测核心闭包：k=9 是 93%、k=10 是 87%，只有 k=8 能裁掉 65%；带探针开销 6%，真正贵的两档省不到 10 s，跳过验证还要在时序约束下还原池，判定不做 | `docs/proof.md`、`docs/roadmap.md` |
 | 结论层的外部对拍 | 0.7.10 | 求解器的 SAT/UNSAT 结论只有内部测试覆盖，外部只验过证明 | `tools/difftest.sh` 拿 CaDiCaL 3.1.0 当独立结论源：1400 个随机 3-SAT 全部一致，736 个 SAT 模型由不依赖本库的 `check_model.py` 逐子句复核，664 个 UNSAT 证明全部交 `drat-trim`（0.7.12 起从抽样改成全验，约 50 秒） | `tools/`、`docs/crosscheck.md`「结论对拍」 |
-| 十分钟审计与缺陷清单 | 0.7.11 | 评审要在十几篇文档里自己拼证据；真实缺陷散落在 `design.md` 各节 | `docs/audit.md` 把六条验收拆成可执行命令（附预期输出与「不符意味着什么」），`docs/fixes.md` 逐条记 9 个真缺陷的症状、发现、修法与防复发 | `docs/audit.md`、`docs/fixes.md` |
+| 十分钟审计与缺陷清单 | 0.7.11 | 评审要在十几篇文档里自己拼证据；真实缺陷散落在 `design.md` 各节 | `docs/audit.md` 把六条验收拆成可执行命令（附预期输出与「不符意味着什么」），`docs/fixes.md` 逐条记真实缺陷的症状、发现、修法与防复发（0.7.11 时 9 条，0.7.16 补到 10 条） | `docs/audit.md`、`docs/fixes.md` |
 | 加权最优值的外部裁判 | 0.7.12 | `o` 这个数只有内部一致性：结论对拍只比 SAT/UNSAT，`maxsat-verify` 验的也是自家上下界彼此一致 | `tools/maxsat_bruteforce.py` 枚举全部 2^n 个赋值求真最优：400 个随机 WCNF（8–16 变量）全部相等，0 不等、0 求解失败，整轮 9.4 秒 | `tools/maxsat_bruteforce.py`、`docs/crosscheck.md`「加权最优值」 |
 | 文档口径自查（第二轮） | 0.7.14 | 上一轮复核之后又有新的落伍表述：`examples/README.md` 说「命令行不接受文件 IO」、`proof.md` 的「已知缺口」说没有外部验最优性的入口、`usage.md` 给 `solve` 多写了 `-1 0`、仓库内申报书副本停在 0.7.9 | 逐篇对照源码修正 14 处（明细见 `CHANGELOG.md` 的 0.7.14 段）；`docs/申报书.md` 的版本号改为以 `moon.mod` 为准，不再写死 | `CHANGELOG.md`、`docs/fixes.md` |
+| 文档口径自查可执行 | 0.7.16 | 文档与源码对不上只能靠人逐页读：0.7.14 一轮读出 14 处，0.7.15 又读出 2 处，两轮都是人眼扫出来的 | `tools/doccheck.sh` 把六类判定做成命令（子命令名、当前版本、版本区间、测试数、`docs/` 篇数、`.mbt` 数、`extern` 计数），期望值现读不写死；`tools/doccheck_selftest.sh` 故意改坏三处确认能抓（3/3）；`.githooks/pre-commit` 拦住口径不符的提交；`tools/audit.sh` 把 `docs/audit.md` 六组命令变成 `PASS`/`FAIL`/`SKIP` | `tools/`、`docs/audit.md`、`CONTRIBUTING.md` |
 
 ## 量化
 
@@ -34,7 +35,7 @@
 - 命令：8 → 18 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`maxsat-oll`、`maxsat-oll-budget`、`verify-solution`、`maxsat-verify-external`）。
 - 文档：`docs/` 共 13 篇（新增 `benchmarks.md`、`proof.md`、`november.md`、`reproduce.md`、`crosscheck.md`、`audit.md`、`fixes.md`、`申报书.md`）。
 - 提交：十一月一日起的每次提交都在历史里可数（`git log --since=2026-11-01 --oneline | wc -l`，0.6.7 发布前 78 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
-- 发布：Mooncakes 0.5.0 起持续发布，当前最新版本见 `moon.mod`（0.7.14），每次 `build=success`；0.6.4 起每个版本都有 tag 与 GitHub Release。
+- 发布：Mooncakes 0.5.0 起持续发布，当前最新版本见 `moon.mod`，每次 `build=success`；0.6.4 起每个版本都有 tag 与 GitHub Release。
 
 ## 没有做到的
 

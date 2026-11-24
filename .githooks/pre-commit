@@ -1,3 +1,13 @@
 #!/bin/sh
 
-moon check
+moon check --deny-warn || exit 1
+
+# 文档口径自查：命令名、版本号、测试数、docs 篇数是否与源码一致。
+# 只在仓库已 clone（有 .git）时可跑；下载的 zip 里没有 .git，交给 CI 之外的人手工跑。
+if [ -f tools/doccheck.sh ]; then
+  bash tools/doccheck.sh || {
+    echo ""
+    echo "文档口径自查未通过（见上面的 BAD 行）。确属历史叙述的，把该页加进 tools/doccheck.sh 的排除名单。"
+    exit 1
+  }
+fi

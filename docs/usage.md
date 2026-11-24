@@ -269,7 +269,7 @@ Petersen 太小，两边的开销都在编码重建上，看不出差别；10×1
 **大证明怎么验？**
 检查器只解析 ASCII DRAT（每行一条子句）。二进制 DRAT（CaDiCaL 的默认二进制输出）需要先转成文本，例如 `cadical --binary=false`；直接喂二进制会被读成杂乱的小子句集并判 `PROOF-REJECTED`，而不是报格式错误。
 
-两个输入都用 `@path` 交给命令行自己读：`verify @php-10.cnf @php-10.drat`。0.7.6 在 native 上实测 k=10 的 24.7 MB 证明（295345 行），整条命令 89 s 输出 `s VERIFIED`，含读盘与解析。手边没有文件时，`bench-verify <k>` 在同一进程里构造 `k` 鸽 `k-1` 洞实例、求解、取证明、校验并打印行数，不经过命令行。
+两个输入都用 `@path` 交给命令行自己读：`verify @php-10.cnf @php-10.drat`。0.7.6 在 native 上实测 k=10 的 24.7 MB 证明（295345 行），整条命令 89 s 输出 `s VERIFIED`，含读盘与解析（机器与口径见 [benchmarks.md](benchmarks.md)「0.7.6 从文件验同一份证明」）。手边没有文件时，`bench-verify <k>` 在同一进程里构造 `k` 鸽 `k-1` 洞实例、求解、取证明、校验并打印行数，不经过命令行。
 
 **为什么没有并行和变量消除？**
 两者都会改变四后端的一致性假设或增加实现风险，当前版本不做；见 [roadmap.md](roadmap.md)。
