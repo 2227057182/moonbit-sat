@@ -7,7 +7,7 @@
 
 | 能力 | 说明 |
 | --- | --- |
-| CDCL 求解 | 两文字监听、1-UIP 学习子句、VSIDS 活动度、Luby 序列重启、子句库归约、相位保存 |
+| CDCL 求解 | 两文字监听、1-UIP 学习子句、VSIDS 活动度、Luby 序列重启、子句库归约与死子句内存释放、相位保存 |
 | 增量求解 | `solve(assumptions)` 可反复调用，带 assumption 的 UNSAT 不污染后续求解状态 |
 | UNSAT core | `solve_core(assumptions)` 在 UNSAT 时返回一个本身不可满足的假设子集，可用来解释冲突，也给 MaxSAT 提供下界 |
 | 冲突预算 | `solve_with_budget` 在给定冲突数后返回 `Unknown`，回退到 0 层，可继续求解 |
@@ -201,7 +201,7 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 
 ```bash
 moon check --deny-warn   # 0 warnings
-moon test                # 93 passed
+moon test                # 95 passed
 ```
 
 ## 基准

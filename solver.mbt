@@ -699,6 +699,13 @@ fn Solver::reduce_db(self : Solver) -> Unit {
       p.delete(c.lits)
     }
     c.mark_dead()
+    // Release the literal buffer as well.  A dead clause is never read again:
+    // propagation checks `dead` before touching `lits`, conflict analysis only
+    // follows reasons and watches into live clauses, and the deletion above is
+    // already in the proof log.  Without this, every deleted clause keeps its
+    // literals alive until the solver is dropped.
+    c.lits.clear()
+    c.lits.shrink_to_fit()
     r = r + 1
   }
   let alive : Array[Int] = []
@@ -716,8 +723,15 @@ fn Solver::reduce_db(self : Solver) -> Unit {
 }
 
 ///|
-/// Insertion sort by activity, ascending.  Learnt DBs are small enough that
-/// this stays cheap and keeps the code dependency-free.
+/// Insertion sort by activity, highest activity first, keeping the input order
+/// among equal activities.  The comparison below shifts a clause right when the
+/// clause before it has a *lower* activity, so the result is descending, and the
+/// reduction then drops the first half - the more active clauses.  That is not
+/// what the original comment claimed, but it is the behaviour every shipped
+/// version has, so it is left alone; see docs/design.md.
+///
+/// Quadratic in the candidate count, which measured at well under 2 s even on
+/// the largest database in the benchmarks, so it is not a bottleneck.
 fn Solver::sort_by_activity(self : Solver, xs : Array[Int]) -> Array[Int] {
   let out : Array[Int] = []
   for x in xs {

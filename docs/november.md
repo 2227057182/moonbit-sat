@@ -2,7 +2,7 @@
 
 对应验收条「工作有效：本期有实质新增」。这里只列十一月一日起进仓库的东西，按能力而非按提交排列；每条都给出可核对的位置。
 
-## 从 0.5.0 到 0.7.7
+## 从 0.5.0 到 0.7.8
 
 | 能力 | 版本 | 之前的状态 | 现在的状态 | 可核对处 |
 | --- | --- | --- | --- | --- |
@@ -21,15 +21,16 @@
 | 外部复核最优性 | 0.7.7 | `maxsat-verify` 只能验自己算出的那一对 `o` 与证明，第三方没有复核入口 | `maxsat-verify-external` 接受外部赋值与外部证明，`opt-1` 的 DRAT 在重建编码上重放；CaDiCaL 3.1.0 实测 Petersen 3 ms、10×10 网格 66 ms，两份证明 `drat-trim` 也 VERIFIED；3 个测试（90 → 93） | `maxsat.mbt`、`cmd/main/main.mbt`、`maxsat_external_wbtest.mbt` |
 | 命令行读文件 | 0.7.6 | 公式与证明只能内联，单个参数 128 KB 上限，24 MB 的 k=10 证明没法通过命令行校验 | 以 `@` 开头的参数按路径读盘，`verify @cnf @drat` 直接可用；native 上 k=10 的 24.7 MB 证明整条命令 89 s 得 `s VERIFIED`（含读盘与解析）；读不到时 `c error: cannot read file <path>`；内联调用完全不变 | `cmd/main/main.mbt`、`cmd/main/moon.pkg`、`docs/usage.md` |
 | 证明越界不再崩溃 | 0.7.6 | 证明引用公式未声明的变量（`999 0` 配两变量公式）会索引越界 abort | `steps_in_range` 前置扫描，越界判 `s PROOF-REJECTED`；24 MB 证明多 0.6% 时间；3 个新测试（87 → 90） | `checker.mbt`、`checker_guard_wbtest.mbt` |
+| 子句池回收 | 0.7.8 | 归约删掉的子句只标 `dead`，文字数组仍被引用，随冲突数线性累积（php-10 上死子句占 62%、死文字 315 万） | 标记的同时清空并释放文字数组，结果逐位不变，php-10 峰值 RSS 112.4 → 92.3 MB（-18%），时间无可归因变化；2 个新测试（93 → 95） | `solver.mbt`、`clause_pool_wbtest.mbt`、`docs/design.md`、`docs/benchmarks.md` |
 | 裁剪式复算的评估 | 0.7.5 | roadmap 记着「k=10 时 drat-trim 只验 172527 条」，把它当成与本检查器 4–7 倍差距的主要来源 | 用临时 reason 探针实测核心闭包：k=9 是 93%、k=10 是 87%，只有 k=8 能裁掉 65%；带探针开销 6%，真正贵的两档省不到 10 s，跳过验证还要在时序约束下还原池，判定不做 | `docs/proof.md`、`docs/roadmap.md` |
 
 ## 量化
 
-- 测试：37 → 93，wasm / js / native 同结果，`moon check --deny-warn` 零告警。
+- 测试：37 → 95，wasm / js / native 同结果，`moon check --deny-warn` 零告警。
 - 命令：8 → 18 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`maxsat-oll`、`maxsat-oll-budget`、`verify-solution`）。
 - 文档：`docs/` 共 11 篇（新增 `benchmarks.md`、`proof.md`、`november.md`、`reproduce.md`、`crosscheck.md`、`申报书.md`）。
-- 提交：十一月一日至二十三日共 96 次（0.6.7 发布前 78 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
-- 发布：Mooncakes 0.5.0 → 0.7.7，每次 `build=success`（0.6.9 与 0.7.0 均已在 registry 显示 `latest_version`），0.6.4 起每个版本都有 tag 与 GitHub Release。
+- 提交：十一月一日至二十三日共 97 次（0.6.7 发布前 78 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
+- 发布：Mooncakes 0.5.0 → 0.7.8，每次 `build=success`（0.6.9 与 0.7.0 均已在 registry 显示 `latest_version`），0.6.4 起每个版本都有 tag 与 GitHub Release。
 
 ## 没有做到的
 
