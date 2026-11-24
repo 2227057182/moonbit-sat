@@ -2,8 +2,8 @@
 # Difference-test this solver's SAT/UNSAT verdicts against CaDiCaL on random
 # 3-SAT, and check that both sides agree on the witness:
 #   SAT   -> our model must satisfy every clause (checked by tools/check_model.py)
-#   UNSAT -> our DRAT must be accepted by drat-trim, for the first PROOF_SAMPLE
-#            instances of each tier (full checking is too slow to do everywhere)
+#   UNSAT -> our DRAT must be accepted by drat-trim: every UNSAT instance by
+#            default (PROOF_SAMPLE=all), or the first N per tier (PROOF_SAMPLE=10)
 #
 # Nothing here touches the solver: it is an outside verdict source, not a test
 # of our own checker. Requires cadical and drat-trim on PATH (or set CADICAL /
@@ -11,7 +11,7 @@
 #
 # usage: tools/difftest.sh            # default tiers, 1400 instances
 #        TIERS="40:4.26:300" tools/difftest.sh
-#        CAP=60 PROOF_SAMPLE=20 tools/difftest.sh
+#        CAP=60 PROOF_SAMPLE=20 tools/difftest.sh   # sample 20 per tier instead
 set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -20,7 +20,7 @@ CADICAL=${CADICAL:-cadical}
 DRATTRIM=${DRATTRIM:-drat-trim}
 WORK=${WORK:-$ROOT/_build/difftest}
 CAP=${CAP:-20}
-PROOF_SAMPLE=${PROOF_SAMPLE:-10}
+PROOF_SAMPLE=${PROOF_SAMPLE:-all}
 TIERS=${TIERS:-"20:4.26:200 30:4.26:200 40:4.26:200 50:4.26:200 60:4.26:200 20:5.00:100 30:5.00:100 40:5.00:100 80:4.26:50 100:4.26:50"}
 
 for bin in "$MAIN" "$DRATTRIM"; do
@@ -58,7 +58,7 @@ for tier in $TIERS; do
         fi ;;
       UNSATISFIABLE)
         unsat=$((unsat+1))
-        if [ "$pchk" -lt "$PROOF_SAMPLE" ]; then
+        if [ "$PROOF_SAMPLE" = all ] || [ "$pchk" -lt "$PROOF_SAMPLE" ]; then
           drat="$WORK/n${n}-r${ratio}-s${i}.drat"
           "$MAIN" proof "@$f" 2>/dev/null | grep -E '^[0-9d-]' > "$drat"
           if "$DRATTRIM" "$f" "$drat" 2>/dev/null | grep -q 's VERIFIED'; then

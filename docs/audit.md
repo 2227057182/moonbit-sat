@@ -64,7 +64,8 @@ $M maxsat-verify @examples/petersen-mwvc.wcnf        # 期望 upper= true lower=
 
 ```bash
 bash tools/crosscheck.sh        # drat-trim + lrat-check 复算 10 个案例，最后一行 all cases verified
-bash tools/difftest.sh          # 与 CaDiCaL 对拍 1400 个随机 3-SAT，期望 1400/1400 一致
+bash tools/difftest.sh          # 与 CaDiCaL 对拍 1400 个随机 3-SAT，664 个 UNSAT 的证明全验，期望 1400/1400
+python3 tools/maxsat_bruteforce.py --main "$M"   # 400 个随机 WCNF 的最优值与 2^n 全枚举对拍，期望 400/400
 ```
 
 ## 5. 开源合规
