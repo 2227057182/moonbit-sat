@@ -261,7 +261,8 @@ native release 下实测，证明行数在改造前后完全相同：
 
 ## 文档与示例
 
-- [设计说明](docs/design.md)：数据结构、关键不变量，以及三次真实缺陷的成因与修法
+- [十分钟审计](docs/audit.md)：按验收六条逐条核对，每条给命令与预期输出
+- [设计说明](docs/design.md)：数据结构、关键不变量，以及真实缺陷的成因与修法（完整清单见 docs/fixes.md）
 - [使用说明](docs/usage.md)：安装、库调用、命令行、输出格式与常见问题
 - [API 参考](docs/api.md)：公开接口逐项说明
 - [实现来源与合规](docs/origin.md)：算法出处、无第三方代码、许可证与校验独立性
@@ -270,6 +271,7 @@ native release 下实测，证明行数在改造前后完全相同：
 - [本期新增](docs/november.md)：0.5.0 → 0.7.9 的实质变化与没做到的部分
 - [基准与对比](docs/benchmarks.md)：顶点覆盖实例、已知最优的依据与实测耗时
 - [路线图](docs/roadmap.md)：已完成与计划项
+- [修掉的缺陷](docs/fixes.md)：本季度真实出错的地方、怎么发现的、防复发靠什么
 - [变更记录](CHANGELOG.md)
 - [贡献指南](CONTRIBUTING.md)
 - [示例实例](examples/README.md)：可满足、不可满足、加权、最小顶点覆盖样例及运行命令
