@@ -185,6 +185,7 @@ moon run cmd/main -- grid-wcnf 10 10
 moon run cmd/main -- maxsat-cnf  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0
 moon run cmd/main -- verify-maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0 "<DRAT 文本>"
 moon run cmd/main -- maxsat-verify "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
+moon run cmd/main -- maxsat-verify-external @examples/petersen-mwvc.wcnf 6 "<v 行>" @pet5.drat
 moon run cmd/main -- maxsat-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 moon run cmd/main -- maxsat-oll-budget "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 50
 moon run cmd/main -- verify-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 1 "v 1 -2 0"
@@ -212,6 +213,7 @@ moon run cmd/main -- verify   @examples/pigeonhole-3-2.cnf @p32.drat     # 再�
 | `maxsat-cnf` | `p cnf …` 头 + 子句行：`maxsat_encoding(w, k)` 的 DIMACS，交给外部检查器用 | `s UNSATISFIABLE (cost <= k unreachable)` + 证明行；或 `s SATISFIABLE (cost <= k achievable)` |
 | `verify-maxsat` | `s VERIFIED` 或 `s PROOF-REJECTED`（重建同一编码后重放） |
 | `maxsat-verify` | `o <成本>` + `c upper= <bool> lower= <bool>` + `s OPTIMALITY-VERIFIED`（上界赋值与 `opt-1` 的下界证明都要过） |
+| `maxsat-verify-external <opt> <lits> <DRAT>` | 同上两行输出，但赋值与证明由调用方提供：赋值按 WCNF 原文重算，证明在重建出来的编码上重放 |
 | `maxsat-solution` | `o <成本>` + `v <文字> 0` + `s SOLUTION-VERIFIED`；硬子句 UNSAT 时 `s UNSATISFIABLE (hard clauses)` |
 | `maxsat-oll` | 同 `maxsat-solution`，但走核心引导且没有总权重上限 |
 | `maxsat-oll-budget <rounds>` | 收敛时同 `maxsat-oll`；预算用尽时 `c rounds= … lower= … upper= …` + `s UNKNOWN (round budget exhausted)` |
@@ -219,6 +221,32 @@ moon run cmd/main -- verify   @examples/pigeonhole-3-2.cnf @p32.drat     # 再�
 | `bench` | 五行 `c bench vars=… clauses=… result=… decisions=… propagations=… conflicts=… minimised=…` |
 | `bench-verify <k>` | `c verify k=… vars=… proof_lines=… sat=… result=VERIFIED` 或 `… REJECTED` |
 | 任意 | 最后一行 `c decisions=… propagations=… conflicts=… restarts=… learnts=… minimised=…` |
+
+## 外部复核最优性
+
+前面两种 MaxSAT 验法都要求本仓库自己算出 `o` 与证明。要引入第三方工具，分三步：本仓库只导出编码，外部求解器出模型与证明，最后回到本仓库复算。
+
+```bash
+# 上界侧：代价 ≤ 6 的编码，可满足
+moon run cmd/main -- maxsat-cnf @examples/petersen-mwvc.wcnf 6 > pet6.cnf
+cadical pet6.cnf                       # 取 v 行里前 10 个变量（辅助变量忽略）
+# 下界侧：代价 ≤ 5 的编码，不可满足，同时写出证明
+moon run cmd/main -- maxsat-cnf @examples/petersen-mwvc.wcnf 5 > pet5.cnf
+cadical --binary=false pet5.cnf pet5.drat
+# 两端一起交回来
+moon run cmd/main -- maxsat-verify-external @examples/petersen-mwvc.wcnf 6 "<v 行>" @pet5.drat
+```
+
+输出 `o 6` / `c upper= true lower= true` / `s OPTIMALITY-VERIFIED`。赋值按 WCNF 原文逐条重算代价（`maxsat_model_cost`），证明在 `maxsat_encoding(w, 5)` 重建出来的编码上逐条重放（`verify_proof`）；两条输入都不采信。
+
+实测（native release，CaDiCaL 3.1.0）：
+
+| 实例 | 外部证明 | 两端复算 | 自家 `maxsat-verify` |
+| --- | --- | --- | --- |
+| Petersen（10 顶点，`opt=6`） | 263 字节、14 行 | 5–10 ms | 5 ms |
+| 10×10 网格（100 顶点，`opt=50`，编码 5150 变量） | 22331 字节、2835 行 | 62 ms | 约 345 ms |
+
+Petersen 太小，两边的开销都在编码重建上，看不出差别；10×10 才拉开约 5 倍——`maxsat-verify` 要自己求两档最优值，复算只重放一份已有证明。两档的证明交给 `drat-trim` 也都是 `s VERIFIED`（0 RAT 引理）。注意 `proof` / `maxsat-proof` 的输出第一行是 `s UNSATISFIABLE …`，外部工具不认这一行，喂之前先 `grep -v '^s '` 过滤。
 
 ## 常见问题
 

@@ -325,6 +325,31 @@ pub fn verify_maxsat_solution(
 }
 
 ///|
+/// Both halves of an optimality claim whose inputs come from outside: the
+/// assignment said to reach `cost`, and a refutation of `cost - 1` written by
+/// whatever solver produced it.  The assignment is recomputed against the WCNF
+/// text and the proof is replayed on a freshly rebuilt encoding, so neither
+/// input is taken on trust.  Returns `(upper, lower)`.
+pub fn verify_maxsat_external(
+  w : Wcnf,
+  cost : Int,
+  model : Array[Bool],
+  proof_text : String,
+) -> (Bool, Bool) {
+  if cost < 0 {
+    return (false, false)
+  }
+  let upper = verify_maxsat_solution(w, model, cost)
+  // cost 0 没有下界可证：代价 0 意味着所有软子句都被满足。
+  let lower = if cost == 0 {
+    true
+  } else {
+    verify_maxsat_bound(w, cost - 1, proof_text)
+  }
+  (upper, lower)
+}
+
+///|
 /// An assignment reaching the optimum and the cost it actually pays.  `None`
 /// when the hard clauses alone are unsatisfiable.
 pub fn maxsat_solution(w : Wcnf, weight_cap : Int) -> (Array[Bool], Int)? raise {

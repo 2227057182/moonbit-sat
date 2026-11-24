@@ -155,6 +155,18 @@ o 1   c upper= true lower= true  s OPTIMALITY-VERIFIED      # scheduling
 o 50  c upper= true lower= true  s OPTIMALITY-VERIFIED      # 10×10 网格，347ms
 ```
 
+### 两端都来自外部
+
+`maxsat-verify` 的输入是本仓库自己算的，所以它证明的是「实现自洽」。要让第三方参与，把两端都换掉：
+
+```
+maxsat-cnf <wcnf> <opt>      # 上界侧编码，交给外部求解器，取 SAT 档的 v 行
+maxsat-cnf <wcnf> <opt-1>    # 下界侧编码，外部求解器判 UNSAT，--binary=false 写出 DRAT
+maxsat-verify-external <wcnf> <opt> "<v 行>" "<DRAT>"
+```
+
+下界那一半仍是同一件事：外部证明要在 `maxsat_encoding(w, opt-1)` 上重放。上界那一半换成外部模型，仍然按 WCNF 原文逐条重算代价。实测（CaDiCaL 3.1.0）：Petersen 的 k=5 证明 263 字节 14 行，两端复算 5–10 ms，与自家 `maxsat-verify` 的 5 ms 同量级——实例太小，开销都在编码重建上。10×10 网格（编码 5150 变量，证明 2835 行 22331 字节）复算 62 ms，自家从头算约 345 ms，差约 5 倍：复算不搜索，两端的开销只跟证明长度和公式规模有关，跟最优值有多难求无关。
+
 ### 边界：这是「可复算」，不是「零依赖」
 
 证明是对**扩展后的 CNF**给出的：里面多了每条软子句的 select 变量，以及 Sinz 计数编码分配的一批变量。校验方必须用同一个 `maxsat_encoding` 重建这份公式，才能重放 DRAT。

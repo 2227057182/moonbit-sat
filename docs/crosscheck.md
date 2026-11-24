@@ -102,6 +102,27 @@ cadical --binary=false php-6.cnf php-6.drat
 **它没有覆盖的**：CaDiCaL 3.1.0 在这两个实例上写出的都是纯 DRUP，没有一行需要 RAT。试过 `--block`、`--elimfast`、`--sweep` 与含 ITE 门、XOR 门的构造实例，它仍然只产 RUP 行，所以 `verify-rat` 的 RAT 分支目前只有 `rat_wbtest.mbt` 里的正例与反例支撑，没有真实外部样本。
 
 
+## 反方向的另一半：别人求最优性，我们只复算
+
+`maxsat-verify` 验的是自己算出的那一对；`maxsat-verify-external` 把两端都换成外部输入。
+
+| 步骤 | 谁做 |
+| --- | --- |
+| `maxsat-cnf <wcnf> <opt>` 导出「代价 ≤ opt」的编码，外部求解器求得模型 | 外部 |
+| `maxsat-cnf <wcnf> <opt-1>` 导出「代价 ≤ opt-1」的编码，外部求解器判 UNSAT 并写 DRAT | 外部 |
+| `maxsat-verify-external` 重算赋值代价、重放证明 | 本项目 |
+
+CaDiCaL 3.1.0 实测（native release）：
+
+| 实例 | opt | 外部证明 | 两端复算 | 自家 `maxsat-verify` |
+| --- | --- | --- | --- | --- |
+| Petersen 最小顶点覆盖（10 顶点，软权重 100） | 6 | 263 字节 / 14 行 | 5–10 ms | 5 ms |
+| 10×10 网格（100 顶点，软权重 1） | 50 | 22331 字节 / 2835 行（编码 5150 变量） | 62 ms | 约 345 ms |
+
+Petersen 太小，两边开销都在编码重建上，量级相同；10×10 才拉开约 5 倍，因为自家那条路径要自己求两档最优值。两份外部证明交给 `drat-trim` 也都是 `s VERIFIED`、0 RAT 引理。这一步把关系补成双向：外部检查器能验我们的证明，我们也能验外部的证明与赋值，最优性不依赖任何一方。
+
+一个操作细节：`proof` / `maxsat-proof` 的输出首行是 `s UNSATISFIABLE …`，`drat-trim` 不接受，喂之前 `grep -v '^s '` 去掉；`maxsat-cnf` 的输出是纯 DIMACS，不用处理。
+
 ## 顺带修掉的一个坑
 
 0.6.5 到 0.7.5 命令行不接受文件路径（MoonBit core 没有文件系统模块，公式一律内联传入），路径参数会被挡下；0.7.6 起 `@路径` 成了正规入口，读盘由官方 `moonbitlang/x/fs` 完成，不以 `@` 开头的路径仍然挡下。更早的版本（0.6.4 及以前）则把路径当文本扫数字：`proof examples/pigeonhole-3-2.cnf` 会从文件名里抠出 `3` 和 `2`，造出一个小公式，然后打印 `s SATISFIABLE`。对求解器来说这是最坏的失败模式——不是报错，是给一个自信的错误答案。0.6.5 起这类参数被挡下：

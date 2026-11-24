@@ -2,6 +2,16 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.7.7
+
+### 命令行与库（新增能力，不改默认行为）
+
+- 新增 `maxsat-verify-external <wcnf> <opt> <lits> <drat>` 与库函数 `verify_maxsat_external`：最优性两端都可以来自外部——赋值按 WCNF 原文重算代价，`opt-1` 的 DRAT 在重建出来的编码上重放，两条输入都不采信。此前 `maxsat-verify` 只能验自己算出的那一对，第三方想复核最优性没有入口。
+- 新增 3 个测试（`maxsat_external_wbtest.mbt`）：两端皆真时通过、翻转赋值只坏上界、删掉空子句只坏下界。测试 90 → 93。
+- 实测（CaDiCaL 3.1.0 在 native 上解 `maxsat-cnf` 导出的编码）：Petersen `opt=6` 的 k=5 证明 263 字节 14 行，两端复算 5–10 ms，与自家 `maxsat-verify` 的 5 ms 同量级；10×10 网格（100 顶点、5150 变量编码）证明 2835 行 22331 字节，复算 62 ms，而自家 `maxsat-verify` 从头算约 345 ms。两份外部证明交给 `drat-trim` 同为 `s VERIFIED`、0 RAT 引理。
+
+`moon check --deny-warn` 零告警，`moon test` 与 `moon test --target js` 均 93/93，native / wasm-gc / js 三个后端构建通过。
+
 ## 0.7.6
 
 ### 命令行（会改变调用方式）

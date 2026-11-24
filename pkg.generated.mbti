@@ -44,6 +44,8 @@ pub fn to_dimacs(Formula) -> String
 
 pub fn verify_maxsat_bound(Wcnf, Int32, String) -> Bool
 
+pub fn verify_maxsat_external(Wcnf, Int32, Array[Bool], String) -> (Bool, Bool)
+
 pub fn verify_maxsat_solution(Wcnf, Array[Bool], Int32) -> Bool
 
 pub fn verify_proof(Formula, String) -> Bool

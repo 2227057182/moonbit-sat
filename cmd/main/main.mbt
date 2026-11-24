@@ -296,6 +296,7 @@ fn usage() -> Unit {
   println("  moonbit-sat maxsat-proof <wcnf> <k>   DRAT proof that cost <= k is unreachable")
   println("  moonbit-sat verify-maxsat <wcnf> <k> <proof>  re-check a lower-bound proof")
   println("  moonbit-sat maxsat-verify <wcnf>      check both halves of the optimum: a matching assignment and the refutation of opt-1")
+  println("  moonbit-sat maxsat-verify-external <wcnf> <opt> <lits> <drat>  same two halves, but the assignment and the proof come from outside")
   println("  moonbit-sat maxsat-solution <wcnf>    optimal assignment and its recomputed cost")
   println("  moonbit-sat maxsat-oll <wcnf>         core-guided optimum, no cap on total soft weight")
   println("  moonbit-sat maxsat-oll-budget <wcnf> <rounds>  same, with a round budget: prints the bounds it reached")
@@ -513,6 +514,33 @@ fn main {
     } catch {
       e => println("c error: \{e}")
     }
+  } else if cmd == "maxsat-verify-external" {
+    if args.length() < 6 {
+      println(
+        "c usage: maxsat-verify-external <wcnf> <opt> <lits like \"1 -2 3 0\"> <drat>",
+      )
+      return
+    }
+    let w = @lib.parse_wcnf(decode(args[2]))
+    if !wcnf_ok_or_report(w) {
+      return
+    }
+    let opt = parse_uint(args[3])
+    if opt < 0 {
+      println("c error: expected a non-negative integer, got \{args[3]}")
+      return
+    }
+    let model = parse_model(decode(args[4]), w.num_vars)
+    let proof = decode(args[5])
+    // 上界来自调用方给的赋值，下界来自调用方给的证明，两者都不采信。
+    let (upper, lower) = @lib.verify_maxsat_external(w, opt, model, proof)
+    println("o \{opt}")
+    println("c upper= \{upper} lower= \{lower}")
+    println(if upper && lower {
+      "s OPTIMALITY-VERIFIED"
+    } else {
+      "s PROOF-REJECTED"
+    })
   } else if cmd == "maxsat-oll" {
     let wcnf_text = decode(args[2])
     if reject_path_arg(wcnf_text, "wcnf") {

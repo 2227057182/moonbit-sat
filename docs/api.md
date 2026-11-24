@@ -118,6 +118,12 @@
 
 0.7.0 起核心引导可以设轮预算：`maxsat_oll_result(w, max_rounds)` 在预算内收敛时返回 `Solved`，硬子句本身不可满足返回 `Infeasible`，预算用尽返回 `Budgeted(lower, upper)`——下界只由 core 推进，上界从总软权重起步、每找到一个模型就下降，两者之差就是还差多少。一轮是一次 `solve_core` 加记账，对同一输入是确定性的，不是墙钟时限。均匀权重的大图上这条路径按层推进，20×20 加权网格给 20 轮预算会在 不到 10 ms 就返回 `lower= 2000 upper= 40000`，而不是无限跑下去。
 
+### 外部复核最优性
+
+`verify_maxsat_external(w, cost, model, proof_text)` 把最优性两端都交给调用方：`model` 是「代价恰为 `cost`」的赋值，`proof_text` 是「代价 ≤ `cost - 1` 不可达」的 DRAT——它可以由任何求解器在 `maxsat_encoding(w, cost - 1)` 上产出。返回 `(upper, lower)`：上界按 WCNF 原文重算代价，下界在重建出来的同一编码上重放证明，两条输入都不采信。`cost == 0` 时没有下界可证，`lower` 直接为真。
+
+命令行对应 `maxsat-verify-external <wcnf> <opt> <lits> <drat>`，输出 `o <opt>`、`c upper= … lower= …` 与 `s OPTIMALITY-VERIFIED` / `s PROOF-REJECTED`。完整流程（导出编码 → 外部求解器解两档 → 回来复算）见 [usage.md](usage.md)「外部复核最优性」。
+
 ## 命令行
 
 ```
@@ -133,6 +139,7 @@ moon run cmd/main -- maxsat-solution "<WCNF 文本>"
 moon run cmd/main -- maxsat-oll "<WCNF 文本>"
 moon run cmd/main -- maxsat-oll-budget "<WCNF 文本>" <rounds>
 moon run cmd/main -- verify-solution "<WCNF 文本>" <cost> "<lits，如 1 -2 3 0>"
+moon run cmd/main -- maxsat-verify-external "<WCNF 文本>" <opt> "<lits>" "<DRAT 文本>"
 moon run cmd/main -- verify @examples/pigeonhole-3-2.cnf @proof.drat
 ```
 

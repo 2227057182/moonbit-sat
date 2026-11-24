@@ -14,7 +14,7 @@
 | UNSAT 证明 | 每个学习子句与最终空子句写入 DRAT 风格日志，可交给第三方检查器复算 |
 | 独立检查器 | 项目自带 `check_drat` / `verify_proof`（RUP）与 `check_drat_rat` / `verify_proof_rat`（RUP + RAT），不信任求解器 |
 | 加权 MaxSAT | WCNF 解析 + 松弛变量 + Sinz 顺序计数编码 + 二分求最优成本 |
-| MaxSAT 最优性 | 下界侧 `maxsat_bound_proof` 导出「代价 `k` 不可达」的 DRAT 证明；上界侧 `maxsat_solution` 给出代价恰为 `opt` 的赋值，`maxsat_model_cost` 按 WCNF 原文复算；`maxsat-verify` 两端一起验 |
+| MaxSAT 最优性 | 下界侧 `maxsat_bound_proof` 导出「代价 `k` 不可达」的 DRAT 证明；上界侧 `maxsat_solution` 给出代价恰为 `opt` 的赋值，`maxsat_model_cost` 按 WCNF 原文复算；`maxsat-verify` 两端一起验，`maxsat-verify-external` 接受外部赋值与外部证明 |
 | 预处理 | `Formula::simplify` 去掉子句内重复文字、删除重言子句，并统计被删条数 |
 | 四后端 | 求解与校验不手写 FFI、不依赖外部求解器，`preferred_target = "wasm"` 下与 native 同结果；命令行的 `@path` 读盘用官方 `moonbitlang/x/fs` |
 
@@ -158,6 +158,7 @@ moon run cmd/main -- maxsat-oll-budget "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 50
 moon run cmd/main -- verify-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 1 "v 1 -2 0"   # 只核对导出的赋值
 moon run cmd/main -- proof  @examples/pigeonhole-3-2.cnf > p32.drat      # 从文件读公式，证明写进文件
 moon run cmd/main -- verify @examples/pigeonhole-3-2.cnf @p32.drat        # 再从文件验回来，24 MB 的证明只能这样传
+moon run cmd/main -- maxsat-verify-external @examples/petersen-mwvc.wcnf 6 "<v 行>" @pet5.drat  # 最优性两端都由外部给
 ```
 
 参数里的 `;` 会被当作换行，公式可以直接内联传参；也可以用 `@路径` 从文件读（0.7.6 起），24 MB 的证明只有这条路径能进。
@@ -200,7 +201,7 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 
 ```bash
 moon check --deny-warn   # 0 warnings
-moon test                # 90 passed
+moon test                # 93 passed
 ```
 
 ## 基准
