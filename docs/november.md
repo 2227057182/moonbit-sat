@@ -26,7 +26,7 @@
 | 结论层的外部对拍 | 0.7.10 | 求解器的 SAT/UNSAT 结论只有内部测试覆盖，外部只验过证明 | `tools/difftest.sh` 拿 CaDiCaL 3.1.0 当独立结论源：1400 个随机 3-SAT 全部一致，736 个 SAT 模型由不依赖本库的 `check_model.py` 逐子句复核，664 个 UNSAT 证明全部交 `drat-trim`（0.7.12 起从抽样改成全验，约 50 秒） | `tools/`、`docs/crosscheck.md`「结论对拍」 |
 | 十分钟审计与缺陷清单 | 0.7.11 | 评审要在十几篇文档里自己拼证据；真实缺陷散落在 `design.md` 各节 | `docs/audit.md` 把六条验收拆成可执行命令（附预期输出与「不符意味着什么」），`docs/fixes.md` 逐条记 9 个真缺陷的症状、发现、修法与防复发 | `docs/audit.md`、`docs/fixes.md` |
 | 加权最优值的外部裁判 | 0.7.12 | `o` 这个数只有内部一致性：结论对拍只比 SAT/UNSAT，`maxsat-verify` 验的也是自家上下界彼此一致 | `tools/maxsat_bruteforce.py` 枚举全部 2^n 个赋值求真最优：400 个随机 WCNF（8–16 变量）全部相等，0 不等、0 求解失败，整轮 9.4 秒 | `tools/maxsat_bruteforce.py`、`docs/crosscheck.md`「加权最优值」 |
-| 文档口径自查（第二轮） | 0.7.14 | 上一轮复核之后又有新的落伍表述：`examples/README.md` 说「命令行不接受文件 IO」、`proof.md` 的「已知缺口」说没有外部验最优性的入口、`usage.md` 给 `solve` 多写了 `-1 0`、仓库内申报书副本停在 0.7.9 | 逐篇对照源码修正 8 处；`docs/申报书.md` 的版本号改为以 `moon.mod` 为准，不再写死 | `CHANGELOG.md`、`docs/fixes.md` |
+| 文档口径自查（第二轮） | 0.7.14 | 上一轮复核之后又有新的落伍表述：`examples/README.md` 说「命令行不接受文件 IO」、`proof.md` 的「已知缺口」说没有外部验最优性的入口、`usage.md` 给 `solve` 多写了 `-1 0`、仓库内申报书副本停在 0.7.9 | 逐篇对照源码修正 14 处（明细见 `CHANGELOG.md` 的 0.7.14 段）；`docs/申报书.md` 的版本号改为以 `moon.mod` 为准，不再写死 | `CHANGELOG.md`、`docs/fixes.md` |
 
 ## 量化
 
