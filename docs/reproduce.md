@@ -10,7 +10,7 @@ MoonBit 工具链（`moon` 在 PATH 里）；native 目标需要一个 C 编译�
 git clone https://github.com/2227057182/moonbit-sat.git
 cd moonbit-sat
 moon check --deny-warn     # 0 warnings
-moon test                  # 90 passed, 0 failed
+moon test                  # 95 passed, 0 failed
 moon build --target native --release
 M=_build/native/release/build/cmd/main/main.exe
 ```

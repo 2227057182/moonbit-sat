@@ -150,6 +150,7 @@ moon run cmd/main -- verify "p cnf 2 3;1 0;2 0;-1 -2 0" "-1 0;0"   # 独立校�
 moon run cmd/main -- verify-rat "p cnf 2 3;1 0;2 0;-1 -2 0" "-1 0;0"  # 同一证明，RUP + RAT 规则
 moon run cmd/main -- maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 moon run cmd/main -- maxsat-cnf "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0   # 打印「代价 ≤0」编码后的 CNF，交给外部检查器
+moon run cmd/main -- maxsat-proof  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0   # 导出 k=0 不可达的证明
 moon run cmd/main -- verify-maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0 "$(cat proof)"  # 重建编码后校验
 moon run cmd/main -- maxsat-verify "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"          # 上界赋值 + 下界证明一起验
 moon run cmd/main -- maxsat-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"        # 最优赋值 + 复算代价
@@ -182,7 +183,7 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 
 ## 正确性证据
 
-`moon test` 共 82 个测试，其中 14 类是硬证据：
+`moon test` 共 95 个测试，其中 17 类是硬证据：
 
 1. **与暴力枚举对拍**：80 轮随机 3–5 变量公式，CDCL 的 SAT/UNSAT 结论与真值表枚举逐一比对，SAT 时还验证模型确实满足每条子句。
 2. **证明自校验**：对随机 UNSAT 实例生成 DRAT 证明，再用 `verify_proof` 逐条 RUP 复算；同时有反例测试，确认非 RUP 步骤与缺失空子句都会被拒绝。
@@ -198,10 +199,16 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 12. **核心引导不受总软权重限制**：加权 Petersen（每条 100，总 1000）在 `maxsat` 上直接抛出上限错误，`maxsat-oll` 给出 `o 600`，同一实例把权重降到 1 走编码路径也得 6；另有「同一条软子句被两个 core 命中不重复收费」「单个昂贵 core 计费到 1001」「硬子句不可满足返回 `None`」等结构化用例，以及 4×5 网格（总 2000）→ `o 1000`。
 13. **核心引导有预算出口，且不只对图形态有效**：20×20 加权网格给 20 轮预算，不到 10 ms 就返回 `lower= 2000 upper= 40000`（不设预算会一直跑），预算超过自然长度时与无预算结果一致、`rounds <= 0` 表示不限；另有一个三条三元超边的加权超图实例（软子句与图的边无关）与编码路径对拍，`o 200` 且模型成本按 WCNF 复算一致。
 14. **外部求解器产的证明同样能读**：CaDiCaL 3.1.0（源码编译）对鸽巢 6 鸽 5 洞写出的 235 行 DRAT（156 条添加、79 条删除）原样内联进测试，`verify_proof` 与 `verify_proof_rat` 都判 VERIFIED，`drat-trim` 结论一致；去掉末尾空子句后同一份证明被拒绝——验收是有条件的，不是把文件读进来就点头。
+15. **输入面的失败有回声**：负权重 WCNF、缺 header、非数字参数、越界整数参数，0.7.4 起都返回一行 `c error:` 并以 0 退出（此前分别 abort、静默按默认值、越界落到 k=8）；越界证明引用（`999 0` 配两变量公式）0.7.6 起判 `s PROOF-REJECTED` 而不是 abort。五个输入面测试加三个越界测试守着。
+16. **最优性两端都可以来自外部**：CaDiCaL 3.1.0 产出的赋值与 DRAT 交给 `maxsat-verify-external`，Petersen 与 10×10 网格都输出 `s OPTIMALITY-VERIFIED`；翻转赋值只坏上界、删掉空子句只坏下界、把 `opt` 报大两端全假。三个测试。
+17. **删掉的子句会把内存还回来**：归约后每条死子句的文字数组长度为 0，8 鸽 7 洞（会触发归约）在空壳子句库上仍判 UNSAT；同一实例的决策、传播、冲突与改动前逐位相同，php-10 峰值 RSS 112.4 → 92.3 MB。两个测试，数据见 [docs/benchmarks.md](docs/benchmarks.md)「0.7.8 子句池回收」。
 
 ```bash
-moon check --deny-warn   # 0 warnings
-moon test                # 95 passed
+moon check --deny-warn     # 0 warnings
+moon test                  # 95 passed
+moon test --target js      # 95 passed
+moon test --target wasm    # 95 passed
+moon test --target wasm-gc # 95 passed
 ```
 
 ## 基准
@@ -258,12 +265,12 @@ native release 下实测，证明行数在改造前后完全相同：
 - [实现来源与合规](docs/origin.md)：算法出处、无第三方代码、许可证与校验独立性
 - [复现步骤](docs/reproduce.md)：从 clone 开始的八节证据与预期输出
 - [外部交叉验证](docs/crosscheck.md)：把证明交给 `drat-trim` 与 `lrat-check` 复算的结果
-- [本期新增](docs/november.md)：0.5.0 → 0.6.6 的实质变化与没做到的部分
+- [本期新增](docs/november.md)：0.5.0 → 0.7.8 的实质变化与没做到的部分
 - [基准与对比](docs/benchmarks.md)：顶点覆盖实例、已知最优的依据与实测耗时
 - [路线图](docs/roadmap.md)：已完成与计划项
 - [变更记录](CHANGELOG.md)
 - [贡献指南](CONTRIBUTING.md)
-- [示例实例](examples/README.md)：可满足、不可满足、加权三个样例及运行命令
+- [示例实例](examples/README.md)：可满足、不可满足、加权、最小顶点覆盖样例及运行命令
 
 ## 开发
 

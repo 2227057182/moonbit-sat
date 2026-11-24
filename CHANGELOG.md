@@ -2,6 +2,12 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 文档口径复核（2026-11-24，无代码改动）
+
+- 四后端 `moon test` 实测：native / js / wasm / wasm-gc 各 95/95；`moon check --deny-warn` 零告警；四后端 `moon build --release` 均通过。0.7.8 发布时只复核了 native / js / wasm-gc，wasm 与 wasm-gc 的测试在本次补跑。
+- 数字与口径对齐：README 证据数 82→95、证据类 14→17（追加 3 条）；`docs/reproduce.md` 90→95；申报书 90/82→95、k=8 端到端 0.7s→0.14s、预处理一句补成「轻量预处理」；`docs/november.md` 的 0.7.7 计时 3ms/66ms→5–10ms/62ms、子命令列表补 `maxsat-verify-external`、「至二十三日」→「至二十四日」；`docs/usage.md` 输出表补回 `maxsat-proof` 行；`docs/api.md` 补 `verify_maxsat_external` 签名行；`CONTRIBUTING.md` 修「校验器不接受 RAT」「总软权重一律受限」两处与实现不符的旧口径，并给 CLI 示例补上 `core` / `grid-wcnf` / `bench` / `bench-verify`。
+- 代码、默认路径输出、证明与统计逐位不变。
+
 ## 0.7.8
 
 ### 求解器（只改内存，不改结果）
@@ -13,7 +19,7 @@
 - 新增 2 个测试（`clause_pool_wbtest.mbt`）：归约后每条死子句的文字数组长度为 0 且 `learnts` 恰好剩一半；8 鸽 7 洞（会触发归约）在空壳子句组成的库上仍判 UNSAT。测试 93 → 95。
 - 两处只改注释、不改逻辑：`sort_by_activity` 实际按活跃度降序排、归约删的是更活跃的一半（与旧注释「升序、删尾部」相反，但每个已发布版本都是这个行为）；插入排序在候选数上平方，实测不到端到端 1%，因此 0.7.8 试过的归并排序替代（逐位复现同样顺序）没有进主线，负结果记在 `docs/benchmarks.md`。
 
-`moon check --deny-warn` 零告警，`moon test` 与 `moon test --target js` 均 95/95，native / wasm-gc / js 三个后端构建通过。
+`moon check --deny-warn` 零告警，`moon test` 与 `moon test --target js` 均 95/95，native / wasm-gc / js 三个后端构建通过。（0.7.8 发布时只复核了这三个后端；wasm 与 wasm-gc 的 `moon test` 在 11-24 文档复核时补跑，四个后端均 95/95、`moon build --release` 均通过。）
 
 ## 0.7.7
 

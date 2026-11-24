@@ -109,6 +109,7 @@
 | `maxsat_oll_result` | `(w : Wcnf, max_rounds : Int) -> OllOutcome` | 带轮预算的核心引导：`Solved(赋值, 代价)` / `Infeasible` / `Budgeted(下界, 上界)`；`max_rounds <= 0` 表示不限 |
 | `maxsat_model_cost` | `(w : Wcnf, model : Array[Bool]) -> Int` | 按 WCNF 原文复算代价，硬子句被破坏返回 `-1` |
 | `verify_maxsat_solution` | `(w : Wcnf, model : Array[Bool], claimed_cost : Int) -> Bool` | 声称的代价与复算结果是否一致 |
+| `verify_maxsat_external` | `(w : Wcnf, cost : Int, model : Array[Bool], proof : String) -> (Bool, Bool)` | 两端都来自外部：上界按 WCNF 原文复算代价，下界在重建的 `maxsat_encoding(w, cost - 1)` 上重放证明 |
 
 `maxsat_bound_proof` 与 `maxsat_solution` 是同一件事的两端：前者说明 `opt-1` 不可达，后者给出代价恰为 `opt` 的赋值。单看任一端都不能断言最优——只有「下界不可达 + 上界可达」都成立，`opt` 才是最优值。`maxsat_model_cost` 不依赖任何求解过程，只按 WCNF 累加，因此外部拿到 `v` 行后可以独立复算。
 

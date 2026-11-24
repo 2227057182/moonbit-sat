@@ -210,7 +210,8 @@ moon run cmd/main -- verify   @examples/pigeonhole-3-2.cnf @p32.drat     # 再�
 | `maxsat` | `o <成本>` + `s OPTIMUM FOUND` |
 | `core` | `s UNSATISFIABLE` + `c core= <文字> 0`；或 `s SATISFIABLE` |
 | `grid-wcnf` | 把 WCNF 实例文本打印到标准输出 |
-| `maxsat-cnf` | `p cnf …` 头 + 子句行：`maxsat_encoding(w, k)` 的 DIMACS，交给外部检查器用 | `s UNSATISFIABLE (cost <= k unreachable)` + 证明行；或 `s SATISFIABLE (cost <= k achievable)` |
+| `maxsat-cnf <k>` | `p cnf …` 头 + 子句行：`maxsat_encoding(w, k)` 的 DIMACS，交给外部检查器用 |
+| `maxsat-proof <k>` | `s UNSATISFIABLE (cost <= k unreachable)` + 证明行；或 `s SATISFIABLE (cost <= k achievable)` |
 | `verify-maxsat` | `s VERIFIED` 或 `s PROOF-REJECTED`（重建同一编码后重放） |
 | `maxsat-verify` | `o <成本>` + `c upper= <bool> lower= <bool>` + `s OPTIMALITY-VERIFIED`（上界赋值与 `opt-1` 的下界证明都要过） |
 | `maxsat-verify-external <opt> <lits> <DRAT>` | 同上两行输出，但赋值与证明由调用方提供：赋值按 WCNF 原文重算，证明在重建出来的编码上重放 |

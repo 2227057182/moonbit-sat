@@ -18,7 +18,7 @@
 | 核心引导可设轮预算 | 0.7.0 | 不收敛的实例只能干等，没有任何出口 | `maxsat_oll_result(w, rounds)` 返回 `Solved` / `Infeasible` / `Budgeted(下界, 上界)`；20×20 加权网格给 20 轮在 不到 10ms 就返回 `lower= 2000 upper= 40000`；另有一个三条三元超边的加权超图实例与编码路径对拍（`o 200`），覆盖不是顶点覆盖的形态 | `maxsat.mbt`、`maxsat_oll_wbtest.mbt`、`cmd/main/main.mbt`、`docs/usage.md` |
 | 读入外部求解器的证明 | 0.7.1 | 检查器只被自己的求解器喂过证明，`verify-rat` 的读入路径没有真实样本 | CaDiCaL 3.1.0 的鸽巢 6/5（235 行、156 添加 79 删除）与 7/6（1846 行）证明原样通过 `verify` 与 `verify-rat`，`drat-trim` 结论一致；删掉末尾空子句即被拒绝。两份证明已内联成测试，复跑不需装 CaDiCaL | `external_proof_wbtest.mbt`、`docs/crosscheck.md`「反方向」 |
 | 输入面加固 | 0.7.4 | 负权重 WCNF 让 `maxsat` 直接 abort；缺 header 的实例把所有软子句当硬子句；非数字参数读成 0；`bench-verify 11` 静默测 k=8 | 新增 `wcnf_error`，9 处 CLI 解析后检查、5 处整数参数检查，全部改成一行 `c error:` 并以 0 退出；库层面负权重 `raise`、负 k 返回空子句；5 个新测试（82 → 87） | `maxsat.mbt`、`cmd/main/main.mbt`、`wcnf_guard_wbtest.mbt`、`docs/usage.md` |
-| 外部复核最优性 | 0.7.7 | `maxsat-verify` 只能验自己算出的那一对 `o` 与证明，第三方没有复核入口 | `maxsat-verify-external` 接受外部赋值与外部证明，`opt-1` 的 DRAT 在重建编码上重放；CaDiCaL 3.1.0 实测 Petersen 3 ms、10×10 网格 66 ms，两份证明 `drat-trim` 也 VERIFIED；3 个测试（90 → 93） | `maxsat.mbt`、`cmd/main/main.mbt`、`maxsat_external_wbtest.mbt` |
+| 外部复核最优性 | 0.7.7 | `maxsat-verify` 只能验自己算出的那一对 `o` 与证明，第三方没有复核入口 | `maxsat-verify-external` 接受外部赋值与外部证明，`opt-1` 的 DRAT 在重建编码上重放；CaDiCaL 3.1.0 实测 Petersen 5–10 ms、10×10 网格 62 ms，两份证明 `drat-trim` 也 VERIFIED；3 个测试（90 → 93） | `maxsat.mbt`、`cmd/main/main.mbt`、`maxsat_external_wbtest.mbt` |
 | 命令行读文件 | 0.7.6 | 公式与证明只能内联，单个参数 128 KB 上限，24 MB 的 k=10 证明没法通过命令行校验 | 以 `@` 开头的参数按路径读盘，`verify @cnf @drat` 直接可用；native 上 k=10 的 24.7 MB 证明整条命令 89 s 得 `s VERIFIED`（含读盘与解析）；读不到时 `c error: cannot read file <path>`；内联调用完全不变 | `cmd/main/main.mbt`、`cmd/main/moon.pkg`、`docs/usage.md` |
 | 证明越界不再崩溃 | 0.7.6 | 证明引用公式未声明的变量（`999 0` 配两变量公式）会索引越界 abort | `steps_in_range` 前置扫描，越界判 `s PROOF-REJECTED`；24 MB 证明多 0.6% 时间；3 个新测试（87 → 90） | `checker.mbt`、`checker_guard_wbtest.mbt` |
 | 子句池回收 | 0.7.8 | 归约删掉的子句只标 `dead`，文字数组仍被引用，随冲突数线性累积（php-10 上死子句占 62%、死文字 315 万） | 标记的同时清空并释放文字数组，结果逐位不变，php-10 峰值 RSS 112.4 → 92.3 MB（-18%），时间无可归因变化；2 个新测试（93 → 95） | `solver.mbt`、`clause_pool_wbtest.mbt`、`docs/design.md`、`docs/benchmarks.md` |
@@ -26,10 +26,10 @@
 
 ## 量化
 
-- 测试：37 → 95，wasm / js / native 同结果，`moon check --deny-warn` 零告警。
-- 命令：8 → 18 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`maxsat-oll`、`maxsat-oll-budget`、`verify-solution`）。
+- 测试：37 → 95；native / js / wasm / wasm-gc 四个后端各跑一遍都是 95/95、结论相同（`moon build --release` 四后端全过），`moon check --deny-warn` 零告警。
+- 命令：8 → 18 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`maxsat-oll`、`maxsat-oll-budget`、`verify-solution`、`maxsat-verify-external`）。
 - 文档：`docs/` 共 11 篇（新增 `benchmarks.md`、`proof.md`、`november.md`、`reproduce.md`、`crosscheck.md`、`申报书.md`）。
-- 提交：十一月一日至二十三日共 97 次（0.6.7 发布前 78 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
+- 提交：十一月一日至二十四日共 98 次（0.6.7 发布前 78 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
 - 发布：Mooncakes 0.5.0 → 0.7.8，每次 `build=success`（0.6.9 与 0.7.0 均已在 registry 显示 `latest_version`），0.6.4 起每个版本都有 tag 与 GitHub Release。
 
 ## 没有做到的

@@ -49,7 +49,7 @@ moon build --target native
 
 以下限制是有意为之，改动它们需要先在 Issue 中讨论：
 
-- 证明只产出 RUP 步骤，校验器不接受 RAT。
-- MaxSAT 总软权重受 `weight_cap` 限制，超限直接报错而不是截断。
+- 求解器只产出 RUP 证明步骤；检查器默认 `verify_proof` 严格 RUP，另有 `verify_proof_rat` / `verify-rat` 接受 RAT（外部求解器的证明常含 RAT 引理）。
+- 编码路径的总软权重受 `weight_cap` 限制，超限直接报错而不是截断；核心引导（`maxsat_oll`）没有总权重上限。
 - 库不做文件 IO（`parse_dimacs` / `parse_wcnf` 只吃文本）；命令行可以内联文本，也可以用 `@路径` 读文件（0.7.6 起，走官方 `moonbitlang/x/fs`）。
 - 不引入外部 SAT 求解器依赖。
