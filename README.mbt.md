@@ -265,7 +265,7 @@ native release 下实测，证明行数在改造前后完全相同：
 - [实现来源与合规](docs/origin.md)：算法出处、无第三方代码、许可证与校验独立性
 - [复现步骤](docs/reproduce.md)：从 clone 开始的八节证据与预期输出
 - [外部交叉验证](docs/crosscheck.md)：把证明交给 `drat-trim` 与 `lrat-check` 复算的结果
-- [本期新增](docs/november.md)：0.5.0 → 0.7.8 的实质变化与没做到的部分
+- [本期新增](docs/november.md)：0.5.0 → 0.7.9 的实质变化与没做到的部分
 - [基准与对比](docs/benchmarks.md)：顶点覆盖实例、已知最优的依据与实测耗时
 - [路线图](docs/roadmap.md)：已完成与计划项
 - [变更记录](CHANGELOG.md)

@@ -2,7 +2,7 @@
 
 对应验收条「工作有效：本期有实质新增」。这里只列十一月一日起进仓库的东西，按能力而非按提交排列；每条都给出可核对的位置。
 
-## 从 0.5.0 到 0.7.8
+## 从 0.5.0 到 0.7.9
 
 | 能力 | 版本 | 之前的状态 | 现在的状态 | 可核对处 |
 | --- | --- | --- | --- | --- |
@@ -30,7 +30,7 @@
 - 命令：8 → 18 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`maxsat-oll`、`maxsat-oll-budget`、`verify-solution`、`maxsat-verify-external`）。
 - 文档：`docs/` 共 11 篇（新增 `benchmarks.md`、`proof.md`、`november.md`、`reproduce.md`、`crosscheck.md`、`申报书.md`）。
 - 提交：十一月一日至二十四日共 98 次（0.6.7 发布前 78 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
-- 发布：Mooncakes 0.5.0 → 0.7.8，每次 `build=success`（0.6.9 与 0.7.0 均已在 registry 显示 `latest_version`），0.6.4 起每个版本都有 tag 与 GitHub Release。
+- 发布：Mooncakes 0.5.0 → 0.7.9，每次 `build=success`（0.6.9 与 0.7.0 均已在 registry 显示 `latest_version`），0.6.4 起每个版本都有 tag 与 GitHub Release。
 
 ## 没有做到的
 

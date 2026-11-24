@@ -2,6 +2,14 @@
 
 版本号遵循 `moon.mod` 中的 `version` 字段。
 
+## 0.7.9
+
+### 只重发文档（代码与包内容不变）
+
+- 0.7.8 的包内文档停在修正前的口径：README 首页写「82 个测试、14 类硬证据」，同一页的命令块却是 `95 passed`；`CONTRIBUTING.md` 说「检查器不接受 RAT」，而 `verify-rat` 分支早已存在；申报书把 k=8 端到端写成 `0.7s`，仓库内三处口径都是 `0.14s`。这些已由仓库提交 `7223ab0` 修正，但 Mooncakes 展示的是发布时的旧副本。
+- 本版不新增能力、不改代码：`moon.mod` 只改 `version`；文档除把「至 0.7.8」的版本表述改成「至 0.7.9」之外，与 `7223ab0` 一致。求解器行为、默认路径输出、证明与统计与 0.7.8 逐位相同。
+- `moon check --deny-warn` 零告警；`moon test` 在 native / js / wasm / wasm-gc 四个后端各 95/95。
+
 ## 文档口径复核（2026-11-24，无代码改动）
 
 - 四后端 `moon test` 实测：native / js / wasm / wasm-gc 各 95/95；`moon check --deny-warn` 零告警；四后端 `moon build --release` 均通过。0.7.8 发布时只复核了 native / js / wasm-gc，wasm 与 wasm-gc 的测试在本次补跑。
