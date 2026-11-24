@@ -117,7 +117,7 @@
 
 `Wcnf` 的字段 `num_vars`、`top`、`hard`、`soft`、`weights` 可直接读取，便于调用方检查解析结果；`header_ok` 记录是否真的读到了带正 TOP 的 `p wcnf` 头（命令行用它决定拒绝还是继续）。
 
-0.7.0 起核心引导可以设轮预算：`maxsat_oll_result(w, max_rounds)` 在预算内收敛时返回 `Solved`，硬子句本身不可满足返回 `Infeasible`，预算用尽返回 `Budgeted(lower, upper)`——下界只由 core 推进，上界从总软权重起步、每找到一个模型就下降，两者之差就是还差多少。一轮是一次 `solve_core` 加记账，对同一输入是确定性的，不是墙钟时限。均匀权重的大图上这条路径按层推进，20×20 加权网格给 20 轮预算会在 不到 10 ms 就返回 `lower= 2000 upper= 40000`，而不是无限跑下去。
+0.7.0 起核心引导可以设轮预算：`maxsat_oll_result(w, max_rounds)` 在预算内收敛时返回 `Solved`，硬子句本身不可满足返回 `Infeasible`，预算用尽返回 `Budgeted(lower, upper)`——下界只由 core 推进，上界从总软权重起步、每找到一个模型就下降，两者之差就是还差多少。一轮是一次 `solve_core` 加记账，对同一输入是确定性的，不是墙钟时限。均匀权重的大图上这条路径按层推进，20×20 加权网格给 20 轮预算会在不到 10 ms 就返回 `lower= 2000 upper= 40000`，而不是无限跑下去。
 
 ### 外部复核最优性
 
@@ -131,7 +131,9 @@
 moon run cmd/main -- solve "<DIMACS 文本>"
 moon run cmd/main -- proof "<DIMACS 文本>"
 moon run cmd/main -- verify "<DIMACS 文本>" "<DRAT 文本>"
-moon run cmd/main -- maxsat "<WCNF 文本>" <weight_cap>
+moon run cmd/main -- verify-rat "<DIMACS 文本>" "<DRAT 文本>"
+moon run cmd/main -- core "<DIMACS 文本>" "<假设文字，如 1 2 0>"
+moon run cmd/main -- maxsat "<WCNF 文本>"
 moon run cmd/main -- maxsat-cnf "<WCNF 文本>" <k>
 moon run cmd/main -- maxsat-proof "<WCNF 文本>" <k>
 moon run cmd/main -- verify-maxsat "<WCNF 文本>" <k> "<DRAT 文本>"
@@ -141,8 +143,13 @@ moon run cmd/main -- maxsat-oll "<WCNF 文本>"
 moon run cmd/main -- maxsat-oll-budget "<WCNF 文本>" <rounds>
 moon run cmd/main -- verify-solution "<WCNF 文本>" <cost> "<lits，如 1 -2 3 0>"
 moon run cmd/main -- maxsat-verify-external "<WCNF 文本>" <opt> "<lits>" "<DRAT 文本>"
+moon run cmd/main -- grid-wcnf <rows> <cols>
+moon run cmd/main -- bench
+moon run cmd/main -- bench-verify <k>          # k 限 6..10
 moon run cmd/main -- verify @examples/pigeonhole-3-2.cnf @proof.drat
 ```
+
+命令行的 `maxsat` / `maxsat-solution` / `maxsat-verify` 把 `weight_cap` 固定成 512；要换上限得直接调库函数。
 
 命令行接受两种输入：内联文本（用 `;` 代替换行），或 `@路径`。后者是 0.7.6 起的：以 `@` 开头的参数按文件路径读取，读到的文本直接替换该参数，公式与证明两侧都适用，24 MB 的证明只能这样传。读盘由 `cmd/main` 用的官方 `moonbitlang/x/fs` 完成；库包本身不新增依赖，`moon.mod` 的 `deps` 仍为空。读不到文件时打印 `c error: cannot read file <path>` 并退出。不以 `@` 开头的路径参数照旧被挡下，提示改用 `@path` 或 `"$(cat file)"`——早期版本会把路径里的数字当成公式，静默给出一个错误结论。示例：
 

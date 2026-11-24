@@ -1,6 +1,11 @@
 # 示例实例
 
-这里的文件是标准 DIMACS CNF / WCNF 文本，可以用任何 SAT 工具读取。本项目的命令行不接受文件 IO（MoonBit core 没有文件系统模块），所以运行前要把文件内容压成一行、用 `;` 代替换行。
+这里的文件是标准 DIMACS CNF / WCNF 文本，可以用任何 SAT 工具读取。0.7.6 起命令行支持 `@路径`（读盘由官方 `moonbitlang/x/fs` 完成），所以这些文件可以直接当参数；下面的命令同时给出内联写法，两者等价。
+
+```bash
+moon run cmd/main -- solve @examples/simple-sat.cnf
+moon run cmd/main -- verify @examples/pigeonhole-3-2.cnf @p32.drat
+```
 
 ## 可满足实例 `simple-sat.cnf`
 

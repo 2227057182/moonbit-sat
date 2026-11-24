@@ -183,6 +183,7 @@ moon run cmd/main -- maxsat  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 moon run cmd/main -- core    "p cnf 2 2;1 2 0;-1 -2 0" "1 2"
 moon run cmd/main -- grid-wcnf 10 10
 moon run cmd/main -- maxsat-cnf  "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0
+moon run cmd/main -- maxsat-proof "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0
 moon run cmd/main -- verify-maxsat "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 0 "<DRAT 文本>"
 moon run cmd/main -- maxsat-verify "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0"
 moon run cmd/main -- maxsat-verify-external @examples/petersen-mwvc.wcnf 6 "<v 行>" @pet5.drat
@@ -197,23 +198,25 @@ moon run cmd/main -- verify   @examples/pigeonhole-3-2.cnf @p32.drat     # 再�
 
 参数中的 `;` 等价于换行，公式也可以直接内联。以 `@` 开头的参数按文件路径读取内容，`@examples/pigeonhole-3-2.cnf` 与 `"$(cat examples/pigeonhole-3-2.cnf)"` 等价，但不用经过 shell 展开。24 MB 的鸽巢 k=10 证明只能这样传：内联会撞上单个参数的 128 KB 上限（Linux `MAX_ARG_STRLEN`，Windows 约 32 KB）。直接写路径（不以 `@` 开头）仍会被挡下，提示改用 `@path` 或 `"$(cat file)"`，避免把路径里的数字当成公式、静默给出错误结论。读盘走官方 `moonbitlang/x/fs`；库本身不碰文件。
 
+命令行的 `maxsat` / `maxsat-solution` / `maxsat-verify` 把总软权重上限固定为 512，没有第二个参数可调；要换上限就直接调库里的 `maxsat_solve(w, cap)`，或者用没有上限的 `maxsat-oll` / `maxsat-oll-budget`。
+
 输入不合法时不再静默给结论，而是打印一行 `c error: …` 并以 0 退出：WCNF 缺少 `p wcnf <vars> <clauses> <top>`（或 top 不为正）、软权重为负、整数参数里含非数字、`bench-verify` 的 k 不在 6..10，都会这样被挡下。
 
 输出遵循 SAT 竞赛的惯用格式：
 
 | 子命令 | 输出 |
 | --- | --- |
-| `solve` | `s SATISFIABLE` + `v <文字> 0`，或 `s UNSATISFIABLE` + `-1 0` |
+| `solve` | `s SATISFIABLE` + `v <文字> 0`，或仅 `s UNSATISFIABLE`（不给模型行） |
 | `proof` | `s UNSATISFIABLE` + 证明行 + `0` |
 | `verify` | `s VERIFIED` 或 `s PROOF-REJECTED`（严格 RUP） |
 | `verify-rat` | 同上，但用 RUP + RAT 规则 |
 | `maxsat` | `o <成本>` + `s OPTIMUM FOUND` |
-| `core` | `s UNSATISFIABLE` + `c core= <文字> 0`；或 `s SATISFIABLE` |
+| `core` | `s UNSATISFIABLE` + `c core= <文字> 0`（core 为空时打 `c core= (hard clauses alone are unsatisfiable)`）；或 `s SATISFIABLE` |
 | `grid-wcnf` | 把 WCNF 实例文本打印到标准输出 |
 | `maxsat-cnf <k>` | `p cnf …` 头 + 子句行：`maxsat_encoding(w, k)` 的 DIMACS，交给外部检查器用 |
 | `maxsat-proof <k>` | `s UNSATISFIABLE (cost <= k unreachable)` + 证明行；或 `s SATISFIABLE (cost <= k achievable)` |
 | `verify-maxsat` | `s VERIFIED` 或 `s PROOF-REJECTED`（重建同一编码后重放） |
-| `maxsat-verify` | `o <成本>` + `c upper= <bool> lower= <bool>` + `s OPTIMALITY-VERIFIED`（上界赋值与 `opt-1` 的下界证明都要过） |
+| `maxsat-verify` | `o <成本>` + `c upper= <bool> lower= <bool>` + `s OPTIMALITY-VERIFIED`（上界赋值与 `opt-1` 的下界证明都要过）；任一端不过则 `s PROOF-REJECTED` |
 | `maxsat-verify-external <opt> <lits> <DRAT>` | 同上两行输出，但赋值与证明由调用方提供：赋值按 WCNF 原文重算，证明在重建出来的编码上重放 |
 | `maxsat-solution` | `o <成本>` + `v <文字> 0` + `s SOLUTION-VERIFIED`；硬子句 UNSAT 时 `s UNSATISFIABLE (hard clauses)` |
 | `maxsat-oll` | 同 `maxsat-solution`，但走核心引导且没有总权重上限 |

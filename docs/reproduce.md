@@ -1,6 +1,6 @@
 # 复现
 
-从空目录开始，八节命令就能看到本项目的全部证据。默认 Linux/macOS 的 shell；Windows 上命令相同，`@路径` 由命令行自己读盘，不必换 shell 写法。
+从空目录开始，八节命令就能看到本项目的全部证据。命令按 Linux/macOS（或 WSL）的 bash 写；在 Windows PowerShell 里把 `M=_build/...` 换成 `$M = "_build/..."`、`$(cat f)` 换成 `(Get-Content f -Raw)`，其余不变——`@路径` 由命令行自己读盘，不依赖 shell。
 
 ## 前置
 
@@ -164,7 +164,7 @@ petersen-mwvc k=5  13    s VERIFIED   c VERIFIED
 
 最后一行是 `all cases verified by drat-trim and lrat-check`，任一案例失败则退出码非 0。`drat-trim` 的分项统计显示全部案例 **0 RAT 引理**，即输出证明是纯 DRUP，只需 RUP 就能验。方法和完整表格见 [docs/crosscheck.md](crosscheck.md)。
 
-反方向的一半也在默认测试里：external_proof_wbtest.mbt 把 CaDiCaL 3.1.0 对鸽巢 6/5 写出的 235 行证明原样交给本项目检查器，verify 与 verify-rat 都判通过，删掉末尾空子句即被拒绝；这一步不需要装 CaDiCaL，见 [docs/crosscheck.md](crosscheck.md)「反方向」。
+反方向的一半也在默认测试里：`external_proof_wbtest.mbt` 把 CaDiCaL 3.1.0 对鸽巢 6/5 写出的 235 行证明原样交给本项目检查器，`verify` 与 `verify-rat` 都判通过，删掉末尾空子句即被拒绝；这一步不需要装 CaDiCaL，见 [docs/crosscheck.md](crosscheck.md)「反方向」。
 
 ## 参考耗时
 
