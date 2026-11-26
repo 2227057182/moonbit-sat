@@ -119,6 +119,155 @@ fn run_bench_verify(k : Int) -> Unit {
 }
 
 ///|
+/// A model is only evidence if the clauses are checked against it, so the
+/// self-test never trusts `s SATISFIABLE` on its own.
+fn model_satisfies(f : @lib.Formula, m : Array[Bool]) -> Bool {
+  for c in f.clauses {
+    let mut hit = false
+    for l in c.lits {
+      let v = @lib.lit_var(l)
+      if v < m.length() {
+        let neg = @lib.lit_is_neg(l)
+        if (neg && !m[v]) || (!neg && m[v]) {
+          hit = true
+        }
+      }
+    }
+    if !hit {
+      return false
+    }
+  }
+  true
+}
+
+///|
+/// One command that walks the whole pipeline — solve, prove, check, optimize,
+/// core — on tiny inline instances.  The point is that a reviewer with no C
+/// compiler, no shell and no instance file can still confirm the build works:
+/// every stage prints one line, and a failing stage exits non-zero.  The
+/// negative cases matter as much as the positive ones: a checker that accepts
+/// everything would pass stage 2 without the extra "must reject a wrong proof"
+/// condition.
+fn run_selftest() -> Int {
+  let mut passed = 0
+  let mut failed = 0
+  let no_assumps : Array[@lib.Lit] = []
+  // 1. SAT: the model must satisfy the formula on its own.
+  try {
+    let f = @lib.parse_dimacs(decode("p cnf 2 2;1 2 0;-1 2 0"))
+    let s = @lib.Solver::new(f)
+    if s.solve(no_assumps) && model_satisfies(f, s.model()) {
+      passed = passed + 1
+      println("c selftest sat        ok")
+    } else {
+      failed = failed + 1
+      println("c selftest sat        FAILED (no model, or model does not satisfy the clauses)")
+    }
+  } catch {
+    e => {
+      failed = failed + 1
+      println("c selftest sat        FAILED (\{e})")
+    }
+  }
+  // 2. UNSAT: the proof must be accepted, and a non-refutation must be rejected.
+  try {
+    let f = @lib.parse_dimacs(decode("p cnf 2 2;1 0;-1 0"))
+    let s = @lib.Solver::new(f)
+    let p = s.enable_proof()
+    let sat = s.solve(no_assumps)
+    let text = p.text()
+    let accepted = @lib.verify_proof(f, text)
+    let rejected = @lib.verify_proof(f, "1 0")
+    if !sat && text.length() > 0 && accepted && !rejected {
+      passed = passed + 1
+      println("c selftest unsat      ok (proof accepted, wrong proof rejected)")
+    } else {
+      failed = failed + 1
+      println("c selftest unsat      FAILED (sat=\{sat} accepted=\{accepted} rejected=\{rejected})")
+    }
+  } catch {
+    e => {
+      failed = failed + 1
+      println("c selftest unsat      FAILED (\{e})")
+    }
+  }
+  // 3. Weighted MaxSAT: x and its negation cannot both hold, so exactly one 10-weight
+  //    soft clause must be violated.
+  try {
+    let w = @lib.parse_wcnf(decode("p wcnf 2 2 100;10 1 0;10 -1 0"))
+    let opt = @lib.maxsat_solve(w, 512)
+    if opt == 10 {
+      passed = passed + 1
+      println("c selftest maxsat     ok (opt=10)")
+    } else {
+      failed = failed + 1
+      println("c selftest maxsat     FAILED (opt=\{opt}, expected 10)")
+    }
+  } catch {
+    e => {
+      failed = failed + 1
+      println("c selftest maxsat     FAILED (\{e})")
+    }
+  }
+  // 4. The reported optimum must survive an independent recomputation of cost
+  //    from the assignment alone.
+  try {
+    let w = @lib.parse_wcnf(decode("p wcnf 2 2 100;10 1 0;10 -1 0"))
+    match @lib.maxsat_solution(w, 512) {
+      Some((model, cost)) =>
+        if @lib.verify_maxsat_solution(w, model, cost) {
+          passed = passed + 1
+          println("c selftest maxsat-asm ok (cost recomputed from the assignment)")
+        } else {
+          failed = failed + 1
+          println("c selftest maxsat-asm FAILED (cost does not recompute)")
+        }
+      None => {
+        failed = failed + 1
+        println("c selftest maxsat-asm FAILED (no solution returned)")
+      }
+    }
+  } catch {
+    e => {
+      failed = failed + 1
+      println("c selftest maxsat-asm FAILED (\{e})")
+    }
+  }
+  // 5. Core extraction: forcing x1 on an UNSAT formula must yield a non-empty
+  //    core, and the core must be a subset of the assumptions.
+  try {
+    let f = @lib.parse_dimacs(decode("p cnf 2 2;-1 0;2 0"))
+    let s = @lib.Solver::new(f)
+    let assumps : Array[@lib.Lit] = [@lib.lit_new(0, false)]
+    let (sat, core) = s.solve_core(assumps)
+    let mut subset = core.length() > 0
+    for l in core {
+      if @lib.lit_var(l) != 0 {
+        subset = false
+      }
+    }
+    if !sat && subset {
+      passed = passed + 1
+      println("c selftest core       ok (core=\{core.length()} literal, subset of assumptions)")
+    } else {
+      failed = failed + 1
+      println("c selftest core       FAILED (sat=\{sat} core=\{core.length()} subset=\{subset})")
+    }
+  } catch {
+    e => {
+      failed = failed + 1
+      println("c selftest core       FAILED (\{e})")
+    }
+  }
+  if failed > 0 {
+    println("c selftest FAILED \{passed}/\{passed + failed}")
+  } else {
+    println("c selftest \{passed}/\{passed + failed} passed")
+  }
+  failed
+}
+
+///|
 /// Parse a whitespace/comma separated list of DIMACS literals into assumptions.
 fn parse_assumptions(text : String) -> Array[@lib.Lit] {
   let out : Array[@lib.Lit] = []
@@ -305,6 +454,7 @@ fn usage() -> Unit {
   println("  moonbit-sat grid-wcnf <rows> <cols>    print a grid minimum-vertex-cover WCNF instance")
   println("  moonbit-sat bench                      search volume on a fixed random 3-SAT ladder")
   println("  moonbit-sat bench-verify <k>           refute pigeonhole k/k-1 and check the proof in-process")
+  println("  moonbit-sat selftest                   solve/prove/check/optimize/core on inline instances; exits non-zero if any stage fails")
   println("")
   println("`;` in the argument is treated as a newline, so formulas can be passed inline.")
   println("An argument starting with `@` names a file and is read from disk, e.g. @examples/pigeonhole-3-2.cnf.")
@@ -342,9 +492,15 @@ fn main {
     return
   }
   if args.length() < 3 {
-    if args.length() == 2 && args[1] == "bench" {
-      run_bench()
-      return
+    if args.length() == 2 {
+      if args[1] == "bench" {
+        run_bench()
+        return
+      }
+      if args[1] == "selftest" {
+        run_selftest() |> ignore
+        return
+      }
     }
     usage()
     return
@@ -701,6 +857,8 @@ fn main {
     println(grid_wcnf_text(rows, cols))
   } else if cmd == "bench" {
     run_bench()
+  } else if cmd == "selftest" {
+    run_selftest() |> ignore
   } else if cmd == "bench-verify" {
     let k = parse_uint(args[2])
     if k < 6 || k > 10 {

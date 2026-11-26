@@ -105,10 +105,11 @@ expect "来源与许可写清楚了" '许可证|许可|License' grep -n '许可'
 
 # ---------------- 6. AI 可解释 ----------------
 section "6. AI 可解释"
-for d in docs/design.md docs/fixes.md docs/roadmap.md; do
+for d in docs/design.md docs/fixes.md docs/roadmap.md docs/journey.md; do
   if [ -s "$d" ]; then PASS "存在 $d（$(wc -l < "$d" | tr -d ' ') 行）"; else FAIL "缺 $d"; fi
 done
 expect "缺陷清单记录了真实出错" '症状|发现|修复' grep -m1 -E '症状|发现|修复' docs/fixes.md
+expect "开发历程写明了 AI 承担的边界" 'AI 承担的' grep -m1 'AI 承担的' docs/journey.md
 
 printf '\n----------------------------------------\n'
 printf 'audit: %d passed, %d failed, %d skipped\n' "$pass" "$fail" "$skip"

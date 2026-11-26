@@ -28,12 +28,15 @@
 | 加权最优值的外部裁判 | 0.7.12 | `o` 这个数只有内部一致性：结论对拍只比 SAT/UNSAT，`maxsat-verify` 验的也是自家上下界彼此一致 | `tools/maxsat_bruteforce.py` 枚举全部 2^n 个赋值求真最优：400 个随机 WCNF（8–16 变量）全部相等，0 不等、0 求解失败，整轮 9.4 秒 | `tools/maxsat_bruteforce.py`、`docs/crosscheck.md`「加权最优值」 |
 | 文档口径自查（第二轮） | 0.7.14 | 上一轮复核之后又有新的落伍表述：`examples/README.md` 说「命令行不接受文件 IO」、`proof.md` 的「已知缺口」说没有外部验最优性的入口、`usage.md` 给 `solve` 多写了 `-1 0`、仓库内申报书副本停在 0.7.9 | 逐篇对照源码修正 14 处（明细见 `CHANGELOG.md` 的 0.7.14 段）；`docs/申报书.md` 的版本号改为以 `moon.mod` 为准，不再写死 | `CHANGELOG.md`、`docs/fixes.md` |
 | 文档口径自查可执行 | 0.7.16 | 文档与源码对不上只能靠人逐页读：0.7.14 一轮读出 14 处，0.7.15 又读出 2 处，两轮都是人眼扫出来的 | `tools/doccheck.sh` 把六类判定做成命令（子命令名、当前版本、版本区间、测试数、`docs/` 篇数、`.mbt` 数、`extern` 计数），期望值现读不写死；`tools/doccheck_selftest.sh` 故意改坏三处确认能抓（3/3）；`.githooks/pre-commit` 拦住口径不符的提交；`tools/audit.sh` 把 `docs/audit.md` 六组命令变成 `PASS`/`FAIL`/`SKIP` | `tools/`、`docs/audit.md`、`CONTRIBUTING.md` |
+| 真实场景示例 | 0.7.17 | 全部证据都是「为展示能力而构造」的实例：鸽巢、随机 3-SAT、网格顶点覆盖、加权 WCNF。评审看不出这个库在一个真实问题上怎么用，也看不出「求解—证明—校验」在真实输入上是否串得起来 | `examples/sudoku/` 是一个独立可执行包（只依赖本库、不发 FFI）：729 变量 / 11745 子句的四类约束编码；AI Escargot 9 ms 解出，由一段不读求解器状态的代码复核 27 组约束；把一格提示改错，同一编码判 UNSAT 并给出 132 行 DRAT，`verify_proof` 逐条重放通过；4 个回归测试（95 → 99），0.7.18 起 5 项自检测试（→ 100） | `examples/sudoku/`、`examples/README.md`、`README.md` 第 18 类证据 |
+
+| 一条命令自检 | 0.7.17 | 评审要在 README 里凑齐十条命令才能确认「它真的在工作」；`tools/audit.sh` 需要 native 编译器与 bash，没有 C 编译器的环境跑不起来；所有子命令都以 0 退出，自动化看不出成败，而 `tools/audit.sh` 需要 native 编译器 | `selftest` 子命令在五个内联实例上依次走完求解（并复核模型）、出证与校验（并确认错误证明被拒）、加权最优值、赋值复算、core 提取，全过打印 `c selftest 5/5 passed`、任一失败打印 `c selftest FAILED n/5`（命令仍以 0 退出，判成败接 `grep -q FAILED`）；不读文件、不需 C 编译器；一个测试守着；`docs/journey.md` 另把开发历程、AI 承担的边界与四类错误被哪道闸门拦住写成一页 | `cmd/main/main.mbt`、`docs/journey.md`、`docs/usage.md` |
 
 ## 量化
 
-- 测试：37 → 95；native / js / wasm / wasm-gc 四个后端各跑一遍都是 95/95、结论相同（`moon build --release` 四后端全过），`moon check --deny-warn` 零告警。
-- 命令：8 → 18 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`maxsat-oll`、`maxsat-oll-budget`、`verify-solution`、`maxsat-verify-external`）。
-- 文档：`docs/` 共 13 篇（新增 `benchmarks.md`、`proof.md`、`november.md`、`reproduce.md`、`crosscheck.md`、`audit.md`、`fixes.md`、`申报书.md`）。
+- 测试：37 → 100；native / js / wasm / wasm-gc 四个后端各跑一遍都是 100/100、结论相同（`moon build --release` 四后端全过），`moon check --deny-warn` 零告警。
+- 命令：8 → 19 个子命令（新增 `grid-wcnf`、`maxsat-cnf`、`maxsat-proof`、`verify-maxsat`、`maxsat-verify`、`maxsat-solution`、`maxsat-oll`、`maxsat-oll-budget`、`verify-solution`、`maxsat-verify-external`、`selftest`）。
+- 文档：`docs/` 共 14 篇（新增 `benchmarks.md`、`proof.md`、`november.md`、`reproduce.md`、`crosscheck.md`、`audit.md`、`fixes.md`、`journey.md`、`申报书.md`）。
 - 提交：十一月一日起的每次提交都在历史里可数（`git log --since=2026-11-01 --oneline | wc -l`，0.6.7 发布前 78 次），包含一次已合并的外部 PR 与一个关闭的 Issue（#6，记录 MaxSAT 最优性证明这项工作）。
 - 发布：Mooncakes 0.5.0 起持续发布，当前最新版本见 `moon.mod`，每次 `build=success`；0.6.4 起每个版本都有 tag 与 GitHub Release。
 

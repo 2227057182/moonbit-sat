@@ -89,8 +89,11 @@ fi
 # ---------- 3. 测试数 ----------
 declared=$(
   {
-    grep -hoE '[0-9]+ passed' $prose_now 2>/dev/null
+    # 同上：`5/5 passed` 是自检的通过数，不是仓库测试总数
+    grep -hoE '[0-9]{2,} passed' $prose_now 2>/dev/null
     grep -hoE '共 [0-9]+ 个测试' $prose_now 2>/dev/null
+    # 两位数以上的「NN 个测试」是总数口径；「3 个测试」这种局部计数放行
+    grep -hoE '[0-9]{2,} 个测试' $prose_now 2>/dev/null
     grep -hoE 'passed: [0-9]+' $prose_now 2>/dev/null
     grep -hoE '[0-9]+/95\b' $prose_now 2>/dev/null
   } | grep -oE '[0-9]+' | sort -u

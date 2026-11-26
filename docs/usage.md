@@ -192,6 +192,7 @@ moon run cmd/main -- maxsat-oll-budget "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 50
 moon run cmd/main -- verify-solution "p wcnf 2 3 10;10 1 2 0;1 -1 0;1 -2 0" 1 "v 1 -2 0"
 moon run cmd/main -- bench
 moon run cmd/main -- bench-verify 9
+moon run cmd/main -- selftest
 moon run cmd/main -- proof    @examples/pigeonhole-3-2.cnf > p32.drat   # 从文件读公式，证明写进文件
 moon run cmd/main -- verify   @examples/pigeonhole-3-2.cnf @p32.drat     # 再从文件验回来
 ```
@@ -224,6 +225,7 @@ moon run cmd/main -- verify   @examples/pigeonhole-3-2.cnf @p32.drat     # 再�
 | `verify-solution` | `s SOLUTION-VERIFIED` 或 `s SOLUTION-REJECTED`（按 WCNF 重算给定的代价与赋值） |
 | `bench` | 五行 `c bench vars=… clauses=… result=… decisions=… propagations=… conflicts=… minimised=…` |
 | `bench-verify <k>` | `c verify k=… vars=… proof_lines=… sat=… result=VERIFIED` 或 `… REJECTED` |
+| `selftest` | 五行 `c selftest <阶段> ok`（sat / unsat / maxsat / maxsat-asm / core）+ `c selftest 5/5 passed`；任一阶段失败时打印 `c selftest <阶段> FAILED`，汇总行变成 `c selftest FAILED n/5`（命令仍以 0 退出，判成败请接 `grep -q FAILED`） |
 | 任意 | 最后一行 `c decisions=… propagations=… conflicts=… restarts=… learnts=… minimised=…` |
 
 ## 外部复核最优性

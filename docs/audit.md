@@ -12,10 +12,10 @@
 git clone https://github.com/2227057182/moonbit-sat.git
 cd moonbit-sat
 moon check --deny-warn     # 期望：0 warnings
-moon test                  # 期望：95 passed, 0 failed
+moon test                  # 期望：100 passed, 0 failed
 ```
 
-`moon test` 在任意后端都能跑（`--target js` / `wasm` / `wasm-gc` 各 95/95）。若出现告警，说明仓库当前状态与「零告警」的口径不符，这本身就是问题。
+`moon test` 在任意后端都能跑（`--target js` / `wasm` / `wasm-gc` 各 100/100）。若出现告警，说明仓库当前状态与「零告警」的口径不符，这本身就是问题。
 
 ## 1. MoonBit 为主
 
@@ -26,7 +26,7 @@ cat moon.mod                                   # deps 只有 CLI 用的 moonbitl
 
 没有手写 FFI，没有链接任何外部求解器；求解、检查、优化都在 MoonBit 内完成。`moonbitlang/x` 只服务 `cmd/main` 的 `@path` 读盘，库包 `deps` 为空。
 
-`.mooncakes/` 是依赖缓存、`_build/` 是生成物，两者都不在仓库里（`git ls-files '*.mbt'` 只有 24 个文件），直接 `grep -rn` 会把它们算进去（166 行），所以命令里带了两个 `--exclude-dir`。
+`.mooncakes/` 是依赖缓存、`_build/` 是生成物，两者都不在仓库里（`git ls-files '*.mbt'` 只有 27 个文件），直接 `grep -rn` 会把它们算进去（166 行），所以命令里带了两个 `--exclude-dir`。
 
 **不符时**：若出现 `extern` 或 `moon.mod` 里多了求解器相关的依赖，「纯 MoonBit」这条就不再成立。
 
@@ -81,11 +81,12 @@ grep -n "许可证\|许可" docs/origin.md | head -3
 
 ## 6. AI 可解释
 
-不需要命令，读三页即可：
+不需要命令，读四页即可：
 
 - `docs/design.md`：数据结构与关键不变量，包括「排序方向与注释相反」这种如实记录。
 - `docs/roadmap.md`「不做」：明确列出拒绝的方向与理由（死槽复用、裁剪式复算、并行、totalizer）。
 - `docs/fixes.md`：本季度真实出错的地方、怎么发现的、现在靠什么防复发。
+- `docs/journey.md`：31 个版本的时间线、AI 承担与不承担的边界、四类 AI 错误分别被哪道闸门拦住、六层验证闭环，以及仍然空着的三项。
 
 ## 一句话
 

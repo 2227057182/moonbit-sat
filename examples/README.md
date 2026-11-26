@@ -51,3 +51,42 @@ moon run cmd/main -- maxsat "<p wcnf ...;2 1 2 0;...>"
 
 预期：`petersen-mwvc.wcnf` 输出 `o 6`，`grid-mwvc.wcnf` 输出 `o 10`——两个值都有独立的已知依据（下界论证与 König 定理），见 `docs/benchmarks.md`。
 
+
+## 真实场景：数独（`examples/sudoku/`）
+
+前面几个实例是「为了展示能力而构造的」。这一节反过来：拿一个真实问题，走一遍完整链路。目录里是一个独立的可执行包，它只依赖本库，不发一行 FFI、不碰求解器内部。
+
+编码：729 个变量 `v(r,c,d)` 表示「第 r 行第 c 列填 d+1」，四类约束共 11745 条（每格至少一个数字 81 条、格内互斥 2916 条、每行/每列/每宫各数字一次 8748 条），提示格写成单元子句。
+
+```
+moon run examples/sudoku --                        # 默认题：AI Escargot
+moon run examples/sudoku -- 15...7.9.3..2...8...   # 或自己给 81 个字符，. 表示空
+```
+
+默认题实测（native release）：
+
+```
+c vars=729 clauses=11768
+s SATISFIABLE
++-------+-------+-------+
+| 1 6 2  8 5 7  4 9 3 |
+...
+c decisions=349 propagations=16492 conflicts=243 restarts=2 learnts=243 minimised=354
+c verified=true
+```
+
+9 毫秒解完，`c verified=true` 来自一段不读求解器任何内部状态的复核：每格 1–9、27 组（9 行 + 9 列 + 9 宫）里每个数字恰好一次、与提示一致。
+
+把其中一格提示改错（第 2 格填 5，正确答案是 6），同一套编码变成 UNSAT，同时得到一份可独立复算的证明：
+
+```
+c vars=729 clauses=11769
+s UNSATISFIABLE
+c decisions=159 propagations=10458 conflicts=131 restarts=1 learnts=130 minimised=104
+c proof lines=132
+c proof self-check=true
+```
+
+`s proof self-check=true` 是 `verify_proof` 把这份 132 行 DRAT 逐条 RUP 重放的结果。也就是说，同一个示例里既有「求解真实问题」，也有「结论可被独立检查」这两件事，都不用额外工具。
+
+这个包自带 4 个回归测试（编码规模、Escargot 可解且复核通过、改一格后 UNSAT 且证明被接受、短输入被拒绝），跟库的其余测试一起在 `moon test` 里跑。

@@ -20,6 +20,10 @@
 
 全部证据（判定 / 证明 / 校验 / core / 加权 / 最优性两端 / 压力）的复现步骤与预期输出见 [docs/reproduce.md](docs/reproduce.md)。
 
+**不看随机 3-SAT 也能判断它好不好用**：`examples/sudoku/` 是一个独立的可执行示例，把数独编码成 729 变量 / 11745 子句，用本库求解，再用一段不碰求解器状态的代码复核每一行、每一列、每一宫。9 毫秒解完；把一格提示改错，同一套编码给出 `s UNSATISFIABLE` 和一份 132 行、能自己复算的 DRAT 证明。`moon run examples/sudoku --` 即可复现，细节见 [examples/README.md](examples/README.md)。
+
+**想先确认它真的在工作**：`moon run cmd/main -- selftest` 在五个内联实例上依次走完求解（并复核模型）、出证与校验（并确认错误证明被拒）、加权最优值、赋值复算、core 提取，全过打印 `c selftest 5/5 passed`；任一阶段失败打印一行 `c selftest <阶段> FAILED`，汇总行也变成 `c selftest FAILED n/5`，管道接 `grep -q FAILED` 就能判成败。不读文件、不需要 C 编译器、不依赖 shell 脚本。
+
 ## 安装
 
 ```bash
@@ -183,7 +187,7 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 
 ## 正确性证据
 
-`moon test` 共 95 个测试，其中 17 类是硬证据：
+`moon test` 共 100 个测试，其中 19 类是硬证据：
 
 1. **与暴力枚举对拍**：80 轮随机 3–5 变量公式，CDCL 的 SAT/UNSAT 结论与真值表枚举逐一比对，SAT 时还验证模型确实满足每条子句。
 2. **证明自校验**：对随机 UNSAT 实例生成 DRAT 证明，再用 `verify_proof` 逐条 RUP 复算；同时有反例测试，确认非 RUP 步骤与缺失空子句都会被拒绝。
@@ -202,8 +206,10 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 15. **输入面的失败有回声**：负权重 WCNF、缺 header、非数字参数、越界整数参数，0.7.4 起都返回一行 `c error:` 并以 0 退出（此前分别 abort、静默按默认值、越界落到 k=8）；越界证明引用（`999 0` 配两变量公式）0.7.6 起判 `s PROOF-REJECTED` 而不是 abort。五个输入面测试加三个越界测试守着。
 16. **最优性两端都可以来自外部**：CaDiCaL 3.1.0 产出的赋值与 DRAT 交给 `maxsat-verify-external`，Petersen 与 10×10 网格都输出 `s OPTIMALITY-VERIFIED`；翻转赋值只坏上界、删掉空子句只坏下界、把 `opt` 报大两端全假。三个测试。
 17. **删掉的子句会把内存还回来**：归约后每条死子句的文字数组长度为 0，8 鸽 7 洞（会触发归约）在空壳子句库上仍判 UNSAT；同一实例的决策、传播、冲突与改动前逐位相同，php-10 峰值 RSS 112.4 → 92.3 MB。两个测试，数据见 [docs/benchmarks.md](docs/benchmarks.md)「0.7.8 子句池回收」。
+18. **真实问题上的端到端**：`examples/sudoku/` 把数独编码成 729 变量、11745 子句，AI Escargot 9 ms 解出，再由一段不读求解器内部状态的代码复核 9 行、9 列、9 宫；把一格提示改错，同一编码判 UNSAT 并给出 132 行、`verify_proof` 逐条重放通过的证明。4 个测试守着这三件事。
+19. **一条命令自检**：`moon run cmd/main -- selftest` 在五个内联小实例上依次走完「求解并复核模型 → 出证并校验、同时确认错误证明被拒 → 加权最优值 → 由赋值复算代价 → core 提取」，全过才打印 `c selftest 5/5 passed`；任一阶段失败就打印 `c selftest <阶段> FAILED`，汇总行变成 `c selftest FAILED n/5`，`| grep -q FAILED` 即可判成败。它不读文件、不需要 C 编译器，用于「拿到仓库先确认它真的在工作」，也被一个测试守着。
 
-上面的 17 类都在 `moon test` 里。仓库另有两份不在测试套件中的对拍，都不改求解器，只从外面看：
+上面的 19 类都在 `moon test` 里。仓库另有两份不在测试套件中的对拍，都不改求解器，只从外面看：
 
 - `tools/difftest.sh` 拿 CaDiCaL 3.1.0 当独立结论源，在 10 档随机 3-SAT（20–100 变量、1400 个实例）上比 SAT/UNSAT 结论，同时核对见证——SAT 的模型交 `tools/check_model.py` 逐子句验，664 个 UNSAT 的 DRAT 全部交 `drat-trim`。结果 1400/1400 一致、736 个模型全部满足、664 份证明全部 `s VERIFIED`，0 分歧 0 超时。
 - `tools/maxsat_bruteforce.py` 回答「`o` 是不是真的最小值」：400 个随机 WCNF（8–16 变量，软权重 1–5）的最优值与 2^n 全枚举一致，0 不等、0 求解失败。
@@ -212,10 +218,10 @@ MoonBit 生态已有两个 SAT 相关包，能力边界与本项目并不重叠�
 
 ```bash
 moon check --deny-warn     # 0 warnings
-moon test                  # 95 passed
-moon test --target js      # 95 passed
-moon test --target wasm    # 95 passed
-moon test --target wasm-gc # 95 passed
+moon test                  # 100 passed
+moon test --target js      # 100 passed
+moon test --target wasm    # 100 passed
+moon test --target wasm-gc # 100 passed
 ```
 
 ## 基准
@@ -273,7 +279,7 @@ native release 下实测，证明行数在改造前后完全相同：
 - [实现来源与合规](docs/origin.md)：算法出处、无第三方代码、许可证与校验独立性
 - [复现步骤](docs/reproduce.md)：从 clone 开始的八节证据与预期输出
 - [外部交叉验证](docs/crosscheck.md)：把证明交给 `drat-trim` 与 `lrat-check` 复算的结果
-- [本期新增](docs/november.md)：0.5.0 → 0.7.16 的实质变化与没做到的部分
+- [本期新增](docs/november.md)：0.5.0 → 0.7.17 的实质变化与没做到的部分
 - [路线图](docs/roadmap.md)：已完成与计划项
 - [修掉的缺陷](docs/fixes.md)：本季度真实出错的地方、怎么发现的、防复发靠什么
 - [基准与对比](docs/benchmarks.md)：顶点覆盖实例、已知最优的依据与实测耗时
